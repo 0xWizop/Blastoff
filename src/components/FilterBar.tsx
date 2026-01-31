@@ -40,40 +40,42 @@ export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4 border border-blastoff-border bg-blastoff-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 gap-3 sm:items-center">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search tokens..."
-            value={filters.search}
-            onChange={(e) => updateFilters({ search: e.target.value })}
-            className="w-full border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text placeholder-blastoff-text-muted outline-none transition-all focus:border-blastoff-orange focus:ring-1 focus:ring-blastoff-orange"
+    <div className="border border-blastoff-border bg-blastoff-surface p-3 sm:p-4">
+      {/* Search Input */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search tokens..."
+          value={filters.search}
+          onChange={(e) => updateFilters({ search: e.target.value })}
+          className="w-full border border-blastoff-border bg-blastoff-bg px-4 py-2.5 pr-10 text-sm text-blastoff-text placeholder-blastoff-text-muted outline-none transition-all focus:border-blastoff-orange focus:ring-1 focus:ring-blastoff-orange sm:py-2"
+        />
+        <svg
+          className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blastoff-text-muted"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
           />
-          <svg
-            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blastoff-text-muted"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
+        </svg>
+      </div>
 
-        <div className="flex shrink-0 gap-2">
+      {/* Sort Options - Horizontal scroll on mobile */}
+      <div className="-mx-3 mt-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+        <div className="flex gap-2">
           {sortOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => updateFilters({ sort: option.value })}
-              className={`px-4 py-2 text-sm font-medium transition-all ${
+              className={`shrink-0 px-4 py-2 text-sm font-medium transition-all ${
                 filters.sort === option.value
                   ? 'bg-blastoff-orange text-white'
-                  : 'bg-blastoff-bg text-blastoff-text-secondary hover:bg-blastoff-border hover:text-blastoff-text'
+                  : 'bg-blastoff-bg text-blastoff-text-secondary active:bg-blastoff-border sm:hover:bg-blastoff-border sm:hover:text-blastoff-text'
               }`}
             >
               {option.label}

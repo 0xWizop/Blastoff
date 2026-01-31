@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useMemo, useState, useEffect } from 'react';
+import { useAccount, useChainId } from 'wagmi';
+import { toast } from 'sonner';
 import { useAppStore, LaunchDex } from '@/store/useAppStore';
+import { useBalances } from '@/hooks/useBalances';
+import { ButtonSpinner } from './Spinner';
 
 const slippageOptions = [0.5, 1, 2, 5];
 const feeTiers: { value: 500 | 3000 | 10000; label: string }[] = [
@@ -13,9 +16,13 @@ const feeTiers: { value: 500 | 3000 | 10000; label: string }[] = [
 
 export function LaunchTokenModal() {
   const { isConnected } = useAccount();
+  const chainId = useChainId();
   const { createdToken, launchDraft, setLaunchDraft, closeModal } = useAppStore();
+  const { data: balances, isLoading: isLoadingBalances } = useBalances();
+  const [isLaunching, setIsLaunching] = useState(false);
 
-  const [mockWethBalance] = useState(1.234);
+  // Get WETH balance from balances hook
+  const wethBalance = balances?.weth?.formatted ?? 0;
 
   const draft = launchDraft;
 
@@ -23,11 +30,12 @@ export function LaunchTokenModal() {
     if (!isConnected) return false;
     if (!createdToken || !draft) return false;
     if (draft.wethLiquidity <= 0) return false;
+    if (draft.wethLiquidity > wethBalance) return false;
     if (draft.initialPriceWeth <= 0) return false;
     if (draft.slippage <= 0) return false;
     if (draft.dex === 'UNISWAP_V3' && !draft.feeTier) return false;
     return true;
-  }, [isConnected, createdToken, draft]);
+  }, [isConnected, createdToken, draft, wethBalance]);
 
   const onClose = () => closeModal('launchToken');
 
@@ -37,13 +45,50 @@ export function LaunchTokenModal() {
   };
 
   const setPct = (pct: number) => {
-    const v = (mockWethBalance * pct) / 100;
+    const v = (wethBalance * pct) / 100;
     update({ wethLiquidity: Number(v.toFixed(4)) });
   };
 
-  const onLaunch = () => {
+  const onLaunch = async () => {
     if (!canSubmit) return;
-    closeModal('launchToken');
+    
+    setIsLaunching(true);
+    const launchToast = toast.loading('Launching token...', {
+      description: 'Please confirm the transaction in your wallet',
+    });
+
+    try {
+      const res = await fetch('/api/tokens/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tokenAddress: createdToken.address,
+          dex: draft.dex,
+          initialPriceWeth: draft.initialPriceWeth,
+          wethLiquidity: draft.wethLiquidity,
+          feeTier: draft.feeTier,
+          chainId,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to launch token');
+      }
+
+      toast.success('Token launched!', {
+        id: launchToast,
+        description: `${createdToken.symbol} is live`,
+      });
+      closeModal('launchToken');
+    } catch (error) {
+      toast.error('Failed to launch token', {
+        id: launchToast,
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsLaunching(false);
+    }
   };
 
   if (!createdToken || !draft) {
@@ -77,7 +122,13 @@ export function LaunchTokenModal() {
             </div>
             <div className="text-right">
               <div className="text-xs text-blastoff-text-muted">WETH Balance</div>
-              <div className="font-mono text-sm text-blastoff-text">{mockWethBalance.toFixed(4)} WETH</div>
+              <div className="font-mono text-sm text-blastoff-text">
+                {isLoadingBalances ? (
+                  <span className="text-blastoff-text-muted">Loading...</span>
+                ) : (
+                  `${wethBalance.toFixed(4)} WETH`
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -185,16 +236,24 @@ export function LaunchTokenModal() {
         <div className="mt-5 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text"
+            disabled={isLaunching}
+            className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={onLaunch}
-            disabled={!canSubmit}
-            className="bg-blastoff-orange px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted"
+            disabled={!canSubmit || isLaunching}
+            className="flex items-center gap-2 bg-blastoff-orange px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted"
           >
-            Launch
+            {isLaunching ? (
+              <>
+                <ButtonSpinner />
+                Launching...
+              </>
+            ) : (
+              'Launch'
+            )}
           </button>
         </div>
       </div>

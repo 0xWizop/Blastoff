@@ -42,7 +42,7 @@ const config: Config = {
         xl: '2px',
         '2xl': '2px',
         '3xl': '2px',
-        full: '2px',
+        full: '9999px', // Keep circular for spinners, avatars, etc.
       },
       boxShadow: {
         'glow-orange': '0 0 20px rgba(255, 107, 0, 0.3)',

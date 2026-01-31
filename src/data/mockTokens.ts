@@ -1,5 +1,11 @@
-import { Token, ChartCandle, UserPosition } from '@/types';
+import { Token } from '@/types';
 
+/**
+ * Seed data for initial database population
+ * Used by: scripts/seed-firestore.ts and /api/admin/seed-mock-tokens
+ * 
+ * TODO [Backend]: Replace with real token data from your sources
+ */
 export const mockTokens: Token[] = [
   {
     address: '0x1234567890abcdef1234567890abcdef12345678',
@@ -147,60 +153,3 @@ export const mockTokens: Token[] = [
   },
 ];
 
-export function generateMockChartData(basePrice: number, count: number = 100): ChartCandle[] {
-  const candles: ChartCandle[] = [];
-  let currentPrice = basePrice;
-  const now = Date.now();
-  const interval = 60000; // 1 minute
-
-  for (let i = count; i >= 0; i--) {
-    const volatility = 0.02;
-    const change = (Math.random() - 0.5) * volatility * currentPrice;
-    const open = currentPrice;
-    const close = currentPrice + change;
-    const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-    const volume = Math.random() * 1000000;
-
-    candles.push({
-      time: Math.floor((now - i * interval) / 1000),
-      open,
-      high,
-      low,
-      close,
-      volume,
-    });
-
-    currentPrice = close;
-  }
-
-  return candles;
-}
-
-export function generateMockUserPosition(token: Token, walletAddress: string): UserPosition | null {
-  if (!walletAddress) return null;
-  
-  const hasPosition = Math.random() > 0.3;
-  if (!hasPosition) return null;
-
-  const balance = Math.random() * 100000;
-  const averageEntry = token.price * (0.8 + Math.random() * 0.4);
-  const currentValue = balance * token.price;
-  const costBasis = balance * averageEntry;
-  const pnlUsd = currentValue - costBasis;
-  const pnlPercent = ((currentValue - costBasis) / costBasis) * 100;
-
-  return {
-    tokenAddress: token.address,
-    balance,
-    averageEntry,
-    currentValue,
-    pnlUsd,
-    pnlPercent,
-  };
-}
-
-export const trendingTokens = mockTokens
-  .filter((t) => t.status === 'LIVE')
-  .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
-  .slice(0, 5);

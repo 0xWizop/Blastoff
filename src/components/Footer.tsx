@@ -11,14 +11,14 @@ export function Footer() {
   ] as const;
 
   return (
-    <footer className="border-t border-blastoff-border bg-blastoff-bg">
-      <div className="container mx-auto flex flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="font-logo text-xl tracking-[0.08em] text-blastoff-orange">BLASTOFF</div>
-          <div className="mt-1 text-xs text-blastoff-text-muted">© {year} BLASTOFF. All rights reserved.</div>
+    <footer className="border-t border-blastoff-border bg-blastoff-bg safe-area-bottom">
+      <div className="container mx-auto flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-6">
+        <div className="text-center sm:text-left">
+          <div className="font-logo text-lg tracking-[0.08em] text-blastoff-orange sm:text-xl">BLASTOFF</div>
+          <div className="mt-1 text-[10px] text-blastoff-text-muted sm:text-xs">© {year} BLASTOFF. All rights reserved.</div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-2 sm:justify-start">
           {socials.map((s) =>
             s.href ? (
               <a
@@ -26,7 +26,7 @@ export function Footer() {
                 href={s.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center border border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-orange"
+                className="flex h-10 w-10 items-center justify-center border border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary transition-all active:border-blastoff-orange sm:hover:border-blastoff-orange sm:hover:text-blastoff-orange"
                 title={s.label}
               >
                 {s.key === 'website' ? (

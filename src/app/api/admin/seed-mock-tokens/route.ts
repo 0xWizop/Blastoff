@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tokensRef = db.collection('tokens');
+    const tokensRef = db.collection('TokenData');
 
     let written = 0;
     const chunks: typeof mockTokens[] = [];

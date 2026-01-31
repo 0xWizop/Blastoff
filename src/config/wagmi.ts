@@ -1,19 +1,25 @@
-import { http, createConfig } from 'wagmi';
-import { base } from 'wagmi/chains';
-import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors';
-
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
+import { http, createConfig, createStorage } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { injected } from 'wagmi/connectors';
 
 export const config = createConfig({
-  chains: [base],
+  chains: [base, baseSepolia],
   connectors: [
-    injected(),
-    walletConnect({ projectId }),
-    coinbaseWallet({ appName: 'BLASTOFF' }),
+    // Injected wallets (MetaMask, Rabby, Phantom, Coinbase Wallet extension, etc.)
+    injected({
+      shimDisconnect: true,
+    }),
   ],
   transports: {
-    [base.id]: http(),
+    [base.id]: http('https://mainnet.base.org'),
+    [baseSepolia.id]: http('https://sepolia.base.org'),
   },
+  // Persist connection state
+  storage: createStorage({
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  }),
+  // Sync connected chain with network
+  syncConnectedChain: true,
 });
 
 declare module 'wagmi' {

@@ -20,6 +20,25 @@ export interface Token {
   telegram?: string;
   discord?: string;
   logoUrl: string;
+  // Extended stats
+  holders?: number;
+  liquidity?: number;
+  txCount24h?: number;
+  creatorAddress?: string;
+}
+
+export type TradeType = 'buy' | 'sell';
+
+export interface Trade {
+  id: string;
+  type: TradeType;
+  tokenAddress: string;
+  walletAddress: string;
+  amount: number;        // Token amount
+  price: number;         // Price per token at trade time
+  totalValue: number;    // Total USD value
+  txHash: string;
+  timestamp: number;
 }
 
 export interface ChartCandle {

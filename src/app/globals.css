@@ -34,8 +34,47 @@ body {
   color: #ffffff;
 }
 
+html {
+  /* Prevent text size adjustment on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'Space Grotesk', sans-serif;
+  /* Improve font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Improve touch targets and interactions */
+@media (hover: none) and (pointer: coarse) {
+  /* Mobile touch devices */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    /* Minimum touch target size */
+    min-height: 44px;
+  }
+  
+  /* Prevent double-tap zoom on buttons */
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/* Disable pull-to-refresh on mobile when scrolling up */
+html {
+  overscroll-behavior-y: contain;
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 ::-webkit-scrollbar {
@@ -81,4 +120,285 @@ input[type='number'] {
   100% {
     transform: translateX(-50%);
   }
+}
+
+/* Space starfield styles */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes twinkle-slow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* Small distant stars */
+.stars-small {
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, white, transparent),
+    radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 90px 40px, white, transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 160px 120px, white, transparent),
+    radial-gradient(1px 1px at 200px 50px, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 220px 140px, white, transparent),
+    radial-gradient(1px 1px at 250px 90px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 280px 180px, white, transparent);
+  background-size: 300px 200px;
+  opacity: 0.6;
+}
+
+/* Medium stars */
+.stars-medium {
+  background-image: 
+    radial-gradient(1.5px 1.5px at 100px 50px, white, transparent),
+    radial-gradient(1.5px 1.5px at 200px 150px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 300px 100px, white, transparent),
+    radial-gradient(1.5px 1.5px at 400px 200px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.5px 1.5px at 500px 80px, white, transparent),
+    radial-gradient(1.5px 1.5px at 150px 220px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 350px 280px, white, transparent),
+    radial-gradient(1.5px 1.5px at 450px 320px, rgba(255,255,255,0.7), transparent);
+  background-size: 550px 350px;
+  opacity: 0.7;
+  animation: twinkle-slow 8s ease-in-out infinite;
+}
+
+/* Large bright stars with twinkle effect */
+.stars-large {
+  background-image: 
+    radial-gradient(2px 2px at 150px 100px, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 400px 300px, rgba(255, 180, 120, 1), transparent),
+    radial-gradient(2px 2px at 700px 200px, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 250px 450px, rgba(255, 200, 150, 1), transparent),
+    radial-gradient(2px 2px at 550px 500px, #fff, transparent),
+    radial-gradient(3px 3px at 850px 400px, rgba(255, 140, 80, 0.9), transparent),
+    radial-gradient(2px 2px at 100px 550px, rgba(255, 220, 180, 1), transparent),
+    radial-gradient(2.5px 2.5px at 950px 150px, #fff, transparent);
+  background-size: 1000px 600px;
+  opacity: 0.9;
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+/* Shooting star effect */
+@keyframes shooting-star {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(500px) translateY(300px);
+    opacity: 0;
+  }
+}
+
+.shooting-star {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  box-shadow: 0 0 8px 2px rgba(255, 200, 150, 0.8), 0 0 16px 4px rgba(255, 140, 80, 0.4);
+}
+
+.shooting-star-1 {
+  top: 10%;
+  left: 20%;
+  animation: shooting-star 15s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+.shooting-star-2 {
+  top: 25%;
+  left: 60%;
+  animation: shooting-star 20s ease-in-out infinite;
+  animation-delay: 10s;
+}
+
+.shooting-star-3 {
+  top: 5%;
+  left: 40%;
+  animation: shooting-star 25s ease-in-out infinite;
+  animation-delay: 18s;
+}
+
+/* Floating cosmic dust particles */
+@keyframes float-dust {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px) translateX(-5px);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translateY(-30px) translateX(15px);
+    opacity: 0.5;
+  }
+}
+
+.cosmic-dust {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 200, 150, 0.6), transparent),
+    radial-gradient(1px 1px at 30% 70%, rgba(255, 180, 130, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 50% 30%, rgba(255, 220, 180, 0.4), transparent),
+    radial-gradient(1px 1px at 70% 60%, rgba(255, 190, 140, 0.5), transparent),
+    radial-gradient(1px 1px at 90% 40%, rgba(255, 200, 150, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 15% 85%, rgba(255, 210, 160, 0.4), transparent),
+    radial-gradient(1px 1px at 85% 15%, rgba(255, 180, 130, 0.5), transparent);
+  background-size: 100% 100%;
+  animation: float-dust 20s ease-in-out infinite;
+}
+
+/* Pulsing glow for extra depth */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(1.05);
+  }
+}
+
+/* Individual twinkling stars */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+    box-shadow: 0 0 2px 1px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+    box-shadow: 0 0 6px 2px rgba(255, 200, 150, 0.5), 0 0 10px 4px rgba(255, 140, 80, 0.2);
+  }
+}
+
+.twinkle-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: white;
+  border-radius: 50%;
+}
+
+.twinkle-star-1 {
+  top: 8%;
+  left: 15%;
+  animation: sparkle 3s ease-in-out infinite;
+}
+
+.twinkle-star-2 {
+  top: 20%;
+  left: 75%;
+  animation: sparkle 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.twinkle-star-3 {
+  top: 35%;
+  left: 45%;
+  animation: sparkle 3.5s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.twinkle-star-4 {
+  top: 12%;
+  left: 88%;
+  animation: sparkle 4.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+.twinkle-star-5 {
+  top: 55%;
+  left: 25%;
+  animation: sparkle 3s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.twinkle-star-6 {
+  top: 45%;
+  left: 92%;
+  animation: sparkle 5s ease-in-out infinite;
+  animation-delay: 0.8s;
+}
+
+.twinkle-star-7 {
+  top: 70%;
+  left: 55%;
+  animation: sparkle 3.8s ease-in-out infinite;
+  animation-delay: 2.5s;
+}
+
+.twinkle-star-8 {
+  top: 28%;
+  left: 8%;
+  animation: sparkle 4.2s ease-in-out infinite;
+  animation-delay: 1.2s;
+}
+
+/* Toast notification styles */
+[data-sonner-toaster] {
+  --normal-bg: #1a1a1a;
+  --normal-border: #2a2a2a;
+  --normal-text: #f0f0f0;
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+[data-sonner-toast] {
+  border-radius: 0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  border-left: 3px solid #22c55e !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-left: 3px solid #ef4444 !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  border-left: 3px solid #3b82f6 !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+  border-left: 3px solid #eab308 !important;
+}
+
+[data-sonner-toast][data-type="loading"] {
+  border-left: 3px solid #ff6b00 !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-weight: 600 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: #a0a0a0 !important;
+  font-size: 0.8125rem !important;
 }

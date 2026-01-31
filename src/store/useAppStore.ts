@@ -30,6 +30,7 @@ interface AppState {
   openModals: {
     walletConnect: boolean;
     slippage: boolean;
+    welcomeOnboarding: boolean;
     createToken: boolean;
     tokenCreated: boolean;
     launchToken: boolean;
@@ -51,6 +52,7 @@ export const useAppStore = create<AppState>((set) => ({
   openModals: {
     walletConnect: false,
     slippage: false,
+    welcomeOnboarding: false,
     createToken: false,
     tokenCreated: false,
     launchToken: false,
@@ -72,6 +74,7 @@ export const useAppStore = create<AppState>((set) => ({
       openModals: {
         walletConnect: false,
         slippage: false,
+        welcomeOnboarding: false,
         createToken: false,
         tokenCreated: false,
         launchToken: false,
