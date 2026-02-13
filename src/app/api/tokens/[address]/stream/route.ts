@@ -7,11 +7,10 @@ import { getChainConfig, getContracts } from '@/config/contracts';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// TokenFactory address on Base Sepolia
-const TOKEN_FACTORY_ADDRESS = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3' as const;
-
 // Polling interval in ms
 const POLL_INTERVAL = 3000; // 3 seconds
+// Max block range per getLogs (RPC limits, e.g. Base Sepolia 10k)
+const MAX_BLOCK_RANGE = 2000n;
 
 function getChain(chainId?: number) {
   return chainId === 84532 ? baseSepolia : base;
@@ -47,6 +46,10 @@ export async function GET(
   }
 
   const chainConfig = getChainConfig(chainId);
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) {
+    return new Response('TokenFactory not configured for this chain', { status: 400 });
+  }
   const client = createPublicClient({
     chain: getChain(chainConfig.chainId),
     transport: http(chainConfig.rpcUrl),
@@ -85,52 +88,55 @@ export async function GET(
         // Default to 18
       }
 
-      // Polling function
+      const transferEvent = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0];
+
+      // Polling function: chunk block range to respect RPC limits; catch per-log so one bad log doesn't break poll
       const pollForTrades = async () => {
         if (!isActive) return;
 
         try {
           const currentBlock = await client.getBlockNumber();
-          
-          if (currentBlock <= lastBlockProcessed) {
-            return;
-          }
+          if (currentBlock <= lastBlockProcessed) return;
+
+          const fromBlock = lastBlockProcessed + 1n;
+          const range = currentBlock - fromBlock + 1n;
+          const chunkEnd = range > MAX_BLOCK_RANGE ? fromBlock + MAX_BLOCK_RANGE - 1n : currentBlock;
 
           // Get Transfer events FROM the TokenFactory TO users (buy events)
-          const buyLogs = await client.getLogs({
-            address: tokenAddress as Address,
-            event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
-            args: {
-              from: TOKEN_FACTORY_ADDRESS,
-            },
-            fromBlock: lastBlockProcessed + 1n,
-            toBlock: currentBlock,
-          });
+          let buyLogs: Log[] = [];
+          let sellLogs: Log[] = [];
+          try {
+            buyLogs = await client.getLogs({
+              address: tokenAddress as Address,
+              event: transferEvent,
+              args: { from: factoryAddress },
+              fromBlock,
+              toBlock: chunkEnd,
+            });
+          } catch (e) {
+            console.error('[stream] getLogs buy failed:', e);
+          }
+          try {
+            sellLogs = await client.getLogs({
+              address: tokenAddress as Address,
+              event: transferEvent,
+              args: { to: factoryAddress },
+              fromBlock,
+              toBlock: chunkEnd,
+            });
+          } catch (e) {
+            console.error('[stream] getLogs sell failed:', e);
+          }
 
-          // Get Transfer events FROM users TO the TokenFactory (potential sells/refunds)
-          const sellLogs = await client.getLogs({
-            address: tokenAddress as Address,
-            event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
-            args: {
-              to: TOKEN_FACTORY_ADDRESS,
-            },
-            fromBlock: lastBlockProcessed + 1n,
-            toBlock: currentBlock,
-          });
-
-          // Process buy events
           for (const log of buyLogs) {
             try {
               const args = log.args as { from?: Address; to?: Address; value?: bigint };
               const tx = await client.getTransaction({ hash: log.transactionHash });
               const block = await client.getBlock({ blockNumber: log.blockNumber });
-
               const amount = Number(formatUnits(args.value || 0n, decimals));
               if (amount === 0) continue;
-
               const ethValue = Number(formatUnits(tx.value, 18));
               const price = amount > 0 && ethValue > 0 ? ethValue / amount : 0;
-
               const trade: Trade = {
                 id: `${log.transactionHash}-${log.logIndex}`,
                 type: 'buy',
@@ -143,26 +149,22 @@ export async function GET(
                 timestamp: Number(block.timestamp) * 1000,
                 blockNumber: log.blockNumber.toString(),
               };
-
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'trade', trade })}\n\n`));
             } catch (e) {
-              console.error('Error processing buy log:', e);
+              console.warn('[stream] Error processing buy log:', log.transactionHash, e);
             }
           }
 
-          // Process sell events (if any)
+          const zero = '0x0000000000000000000000000000000000000000';
           for (const log of sellLogs) {
             try {
               const args = log.args as { from?: Address; to?: Address; value?: bigint };
+              if ((args.from || '').toLowerCase() === zero) continue; // mint to factory, not a sell
               const block = await client.getBlock({ blockNumber: log.blockNumber });
-
               const amount = Number(formatUnits(args.value || 0n, decimals));
               if (amount === 0) continue;
-
-              // For sells, we don't have direct ETH value, estimate from price
-              const price = 0.00003; // Default price estimate
+              const price = 0.00003;
               const ethValue = amount * price;
-
               const trade: Trade = {
                 id: `${log.transactionHash}-${log.logIndex}`,
                 type: 'sell',
@@ -175,37 +177,33 @@ export async function GET(
                 timestamp: Number(block.timestamp) * 1000,
                 blockNumber: log.blockNumber.toString(),
               };
-
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'trade', trade })}\n\n`));
             } catch (e) {
-              console.error('Error processing sell log:', e);
+              console.warn('[stream] Error processing sell log:', log.transactionHash, e);
             }
           }
 
-          // Send ICO stats update
           try {
             const [tokenState, collateral] = await Promise.all([
               client.readContract({
-                address: TOKEN_FACTORY_ADDRESS,
+                address: factoryAddress,
                 abi: tokenFactoryAbi,
                 functionName: 'tokens',
                 args: [tokenAddress as Address],
               }),
               client.readContract({
-                address: TOKEN_FACTORY_ADDRESS,
+                address: factoryAddress,
                 abi: tokenFactoryAbi,
                 functionName: 'collateral',
                 args: [tokenAddress as Address],
               }),
             ]);
-
             const factoryBalance = await client.readContract({
               address: tokenAddress as Address,
               abi: erc20Abi,
               functionName: 'balanceOf',
-              args: [TOKEN_FACTORY_ADDRESS],
+              args: [factoryAddress],
             });
-
             const stats = {
               state: tokenState === 1 ? 'ICO' : tokenState === 2 ? 'GRADUATED' : 'NOT_CREATED',
               collateralRaised: Number(formatUnits(collateral, 18)),
@@ -213,17 +211,16 @@ export async function GET(
               progress: (Number(formatUnits(collateral, 18)) / 30) * 100,
               tokensRemaining: Number(formatUnits(factoryBalance, decimals)),
             };
-
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'stats', stats })}\n\n`));
           } catch (e) {
-            // Stats fetch failed, continue
+            // Stats fetch failed, skip
           }
 
-          lastBlockProcessed = currentBlock;
+          lastBlockProcessed = chunkEnd;
+          if (chunkEnd < currentBlock) lastBlockProcessed = currentBlock;
         } catch (e) {
-          console.error('Polling error:', e);
-          // Send error but continue polling
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Polling error' })}\n\n`));
+          console.error('[stream] Polling error:', e);
+          // Don't spam client with error events every 3s; server log is enough
         }
       };
 

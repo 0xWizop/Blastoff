@@ -6,11 +6,9 @@ import { getChainConfig, getContracts } from '@/config/contracts';
 // Base Sepolia (and many RPCs) limit eth_getLogs to 10,000 blocks per request
 const RPC_MAX_BLOCK_RANGE = 10_000n;
 
-// Contract addresses for Base Sepolia
-const TOKEN_FACTORY_ADDRESS = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3' as const;
-
-// Buy function selector for decoding transactions
-const BUY_FUNCTION_SELECTOR = '0xa6f2ae3a'; // buy(address,uint256) - first 4 bytes of keccak256
+// Function selectors for decoding TokenFactory transactions
+const BUY_FUNCTION_SELECTOR = '0xa6f2ae3a';  // buy(address,uint256)
+const SELL_FUNCTION_SELECTOR = '0x6c197ff5'; // sell(address,uint256)
 
 // Note: The TokenFactory uses Ethereum mainnet Uniswap addresses which don't work on Base Sepolia
 const UNISWAP_V2_FACTORY_SEPOLIA = '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6' as const;
@@ -112,17 +110,19 @@ export async function getTokenFactoryState(
   chainId?: number
 ): Promise<{ collateral: bigint; state: number }> {
   const client = getClient(chainId);
-  
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) return { collateral: 0n, state: 0 };
+
   try {
     const [collateral, state] = await Promise.all([
       client.readContract({
-        address: TOKEN_FACTORY_ADDRESS,
+        address: factoryAddress,
         abi: tokenFactoryAbi,
         functionName: 'collateral',
         args: [tokenAddress],
       }),
       client.readContract({
-        address: TOKEN_FACTORY_ADDRESS,
+        address: factoryAddress,
         abi: tokenFactoryAbi,
         functionName: 'tokens',
         args: [tokenAddress],
@@ -145,13 +145,13 @@ export async function calculateTokenPrice(
   chainId?: number
 ): Promise<number> {
   const client = getClient(chainId);
-  
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) return 0.00003;
+
   try {
-    // Get a small quote to determine current price
     const testAmount = BigInt(1e18); // 1 token
-    
     const requiredEth = await client.readContract({
-      address: TOKEN_FACTORY_ADDRESS,
+      address: factoryAddress,
       abi: tokenFactoryAbi,
       functionName: 'calculateRequiredBaseCoinExp',
       args: [tokenAddress, testAmount],
@@ -194,18 +194,21 @@ export async function getTokenICOStats(
     
     // Get tokens remaining in factory
     let tokensRemaining = INITIAL_MINT;
-    try {
-      const factoryBalance = await client.readContract({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [TOKEN_FACTORY_ADDRESS],
-      });
-      tokensRemaining = Number(formatUnits(factoryBalance, 18));
-    } catch {
-      // Use default
+    const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+    if (factoryAddress) {
+      try {
+        const factoryBalance = await client.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [factoryAddress],
+        });
+        tokensRemaining = Number(formatUnits(factoryBalance, 18));
+      } catch {
+        // Use default
+      }
     }
-    
+
     const tokensSold = INITIAL_MINT - tokensRemaining;
     
     return {
@@ -326,22 +329,19 @@ export async function getTokenFactoryBuys(
   limit: number = 50
 ): Promise<Trade[]> {
   const client = getClient(chainId);
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) return [];
+
   const trades: Trade[] = [];
-  
   try {
-    // Get current block
     const currentBlock = await client.getBlockNumber();
-    // Look back ~100000 blocks for more history
     const fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n;
-    
-    // Get Transfer events FROM the TokenFactory TO users (these are buy fulfillments)
-    // When someone buys and withdraws, tokens transfer from factory to user
-    // Chunk requests to respect RPC eth_getLogs 10k block limit
+
     const logs = await getLogsChunked(client, {
       address: tokenAddress,
       event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
       args: {
-        from: TOKEN_FACTORY_ADDRESS,
+        from: factoryAddress,
       },
       fromBlock,
       toBlock: 'latest',
@@ -395,11 +395,8 @@ export async function getTokenFactoryBuys(
       }
     }
     
-    // Also check for direct buy transactions to factory
-    // (buys where tokens are held in balances, not yet withdrawn)
-    // We can detect these by looking at transactions to the factory (chunked for RPC limit)
     const factoryTxLogs = await getLogsChunked(client, {
-      address: TOKEN_FACTORY_ADDRESS,
+      address: factoryAddress,
       fromBlock,
       toBlock: 'latest',
     });
@@ -467,6 +464,93 @@ export async function getTokenFactoryBuys(
       .slice(0, limit);
   } catch (error) {
     console.error('Error fetching TokenFactory buys:', error);
+    return [];
+  }
+}
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Get sell transactions from TokenFactory for a specific token.
+ * Uses Transfer events TO the factory (user sent tokens = sell). Excludes mints (from zero).
+ */
+export async function getTokenFactorySells(
+  tokenAddress: Address,
+  chainId?: number,
+  limit: number = 50
+): Promise<Trade[]> {
+  const client = getClient(chainId);
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) return [];
+
+  const trades: Trade[] = [];
+  try {
+    const currentBlock = await client.getBlockNumber();
+    const fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n;
+
+    const logs = await getLogsChunked(client, {
+      address: tokenAddress,
+      event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
+      args: { to: factoryAddress },
+      fromBlock,
+      toBlock: 'latest',
+    });
+
+    let decimals = 18;
+    try {
+      decimals = await client.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'decimals',
+      });
+    } catch {
+      // default 18
+    }
+
+    // Price estimate for sells: bonding curve goes down on sell, so use a slight discount so candles show red
+    let sellPriceEstimate = 0.00003;
+    try {
+      const icoStats = await getTokenICOStats(tokenAddress, chainId);
+      if (icoStats.currentPrice > 0) sellPriceEstimate = icoStats.currentPrice * 0.98;
+    } catch {
+      // keep default
+    }
+    if (sellPriceEstimate <= 0) sellPriceEstimate = 0.00003;
+
+    for (const log of logs) {
+      const args = log.args as { from?: Address; to?: Address; value?: bigint };
+      const from = (args.from || '').toLowerCase();
+      if (from === ZERO_ADDRESS) continue; // mint to factory, not a sell
+
+      try {
+        const block = await client.getBlock({ blockNumber: log.blockNumber });
+        const amount = Number(formatUnits(args.value || 0n, decimals));
+        if (amount === 0) continue;
+
+        const totalValue = amount * sellPriceEstimate;
+
+        trades.push({
+          id: `${log.transactionHash}-${log.logIndex}-sell`,
+          type: 'sell',
+          tokenAddress,
+          walletAddress: args.from || '',
+          amount,
+          price: sellPriceEstimate,
+          totalValue,
+          txHash: log.transactionHash,
+          timestamp: Number(block.timestamp) * 1000,
+          blockNumber: log.blockNumber,
+        });
+      } catch (e) {
+        console.warn('Could not get block for sell log:', log.transactionHash);
+      }
+    }
+
+    return trades
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching TokenFactory sells:', error);
     return [];
   }
 }
@@ -578,27 +662,37 @@ export async function getTokenTradesFromSwaps(
 }
 
 /**
- * Get all trades for a token (from both ICO and DEX)
+ * Get all trades for a token (from both ICO and DEX).
+ * For ICO: merges factory buys and sells, sorted by timestamp descending.
  */
 export async function getTokenTrades(
   tokenAddress: Address,
   chainId?: number,
   limit: number = 50
 ): Promise<Trade[]> {
-  // Check token state from factory
   const { state } = await getTokenFactoryState(tokenAddress, chainId);
-  
-  // State: 0 = NOT_CREATED, 1 = ICO, 2 = GRADUATED
+
   if (state === 2) {
-    // Token has graduated - try to get DEX trades
     const pairAddress = await getUniswapV2Pair(tokenAddress, chainId);
     if (pairAddress) {
       return getTokenTradesFromSwaps(tokenAddress, pairAddress, chainId, limit);
     }
   }
-  
-  // Token is in ICO phase or no DEX pair found - get factory buys
-  return getTokenFactoryBuys(tokenAddress, chainId, limit);
+
+  // ICO: fetch both buys and sells, merge and sort by time
+  const [buys, sells] = await Promise.all([
+    getTokenFactoryBuys(tokenAddress, chainId, limit),
+    getTokenFactorySells(tokenAddress, chainId, limit),
+  ]);
+
+  const byTx = new Map<string, Trade>();
+  for (const t of [...buys, ...sells]) {
+    // Prefer existing by txHash so we don't duplicate the same tx (buy and sell are mutually exclusive per tx)
+    if (!byTx.has(t.txHash)) byTx.set(t.txHash, t);
+  }
+  return Array.from(byTx.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
 }
 
 /**
@@ -687,56 +781,63 @@ export async function getTokenHolders(
 }
 
 /**
- * Aggregate trades into OHLCV candles
+ * Aggregate trades into OHLCV candles.
+ * - Periods are aligned to epoch boundaries (e.g. 5m = :00, :05, :10 UTC).
+ * - Each candle's open = previous candle's close so they connect.
  */
 export function aggregateToCandles(
   trades: Trade[],
   timeframe: string = '1h'
 ): ChartCandle[] {
   if (trades.length === 0) return [];
-  
-  // Parse timeframe to milliseconds
+
   const timeframeMsMap: Record<string, number> = {
     '1m': 60 * 1000,
     '5m': 5 * 60 * 1000,
     '15m': 15 * 60 * 1000,
+    '30m': 30 * 60 * 1000,
     '1h': 60 * 60 * 1000,
     '4h': 4 * 60 * 60 * 1000,
     '1d': 24 * 60 * 60 * 1000,
   };
-  
-  const periodMs = timeframeMsMap[timeframe] || timeframeMsMap['1h'];
-  
-  // Sort trades by timestamp ascending
+
+  const periodMs = timeframeMsMap[timeframe.toLowerCase()] ?? timeframeMsMap['1h'];
+
+  // Sort trades by timestamp ascending (oldest first)
   const sortedTrades = [...trades].sort((a, b) => a.timestamp - b.timestamp);
-  
-  // Group trades by period
+
+  // Group trades by period start (aligned to period boundary)
   const candleMap = new Map<number, Trade[]>();
-  
   for (const trade of sortedTrades) {
     const periodStart = Math.floor(trade.timestamp / periodMs) * periodMs;
-    const existing = candleMap.get(periodStart) || [];
+    const existing = candleMap.get(periodStart) ?? [];
     existing.push(trade);
     candleMap.set(periodStart, existing);
   }
-  
-  // Convert to candles
+
+  // Build candles in chronological order; open = previous close for continuity
+  const sortedPeriods = Array.from(candleMap.entries()).sort((a, b) => a[0] - b[0]);
   const candles: ChartCandle[] = [];
-  
-  for (const [time, periodTrades] of Array.from(candleMap.entries()).sort((a, b) => a[0] - b[0])) {
+  let prevClose: number | null = null;
+
+  for (const [periodStartMs, periodTrades] of sortedPeriods) {
     const prices = periodTrades.map((t) => t.price);
-    const volumes = periodTrades.map((t) => t.amount);
-    
+    const open = prevClose !== null ? prevClose : prices[0];
+    const high = Math.max(open, ...prices);
+    const low = Math.min(open, ...prices);
+    const close = prices[prices.length - 1];
+
     candles.push({
-      time: time / 1000, // Convert to seconds for charting libraries
-      open: prices[0],
-      high: Math.max(...prices),
-      low: Math.min(...prices),
-      close: prices[prices.length - 1],
-      volume: volumes.reduce((a, b) => a + b, 0),
+      time: Math.floor(periodStartMs / 1000),
+      open,
+      high,
+      low,
+      close,
+      volume: periodTrades.reduce((sum, t) => sum + t.amount, 0),
     });
+    prevClose = close;
   }
-  
+
   return candles;
 }
 

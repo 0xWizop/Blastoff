@@ -4,8 +4,9 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
+import { useChainId } from 'wagmi';
 import { toast } from 'sonner';
-import { useToken } from '@/hooks/useTokens';
+import { useToken, useTokenChart } from '@/hooks/useTokens';
 import { SwapPanel } from '@/components/SwapPanel';
 import { UserPosition } from '@/components/UserPosition';
 import { Skeleton } from '@/components/Skeleton';
@@ -45,7 +46,11 @@ function formatCompactNumber(num: number): string {
 export default function TokenPage() {
   const params = useParams();
   const address = params.address as string;
-  const { data: token, isLoading, error } = useToken(address);
+  const chainId = useChainId();
+  const { data: token, isLoading, error } = useToken(address, { refetchInterval: 20000, chainId });
+  const { data: chartCandles } = useTokenChart(address, '1m', chainId);
+  const chartPrice = chartCandles?.length ? chartCandles[chartCandles.length - 1].close : null;
+  const displayPrice = chartPrice ?? token?.price ?? 0;
   const [activePanel, setActivePanel] = useState<'swap' | 'position'>('swap');
   const [activeTab, setActiveTab] = useState<ContentTab>('chart');
   const [showShareCard, setShowShareCard] = useState(false);
@@ -166,7 +171,7 @@ export default function TokenPage() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-2xl font-bold font-mono text-blastoff-text">
-                  ${token.price < 0.0001 ? token.price.toExponential(2) : token.price.toFixed(6)}
+                  ${displayPrice > 0 && displayPrice < 0.0001 ? displayPrice.toFixed(8).replace(/\.?0+$/, '') || '0' : displayPrice.toFixed(6).replace(/\.?0+$/, '') || '0'}
                 </p>
               </div>
               
@@ -191,27 +196,27 @@ export default function TokenPage() {
             </div>
           </div>
 
-          {/* Stats Bar */}
+          {/* Stats Bar – MCap, Volume, Holders, Txns 24h update from chain on buy/sell; Liquidity TBD */}
           <div className="shrink-0 grid grid-cols-3 sm:grid-cols-6 gap-px bg-blastoff-border border border-blastoff-border">
             <div className="bg-blastoff-surface px-3 py-2">
               <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">MCap</p>
-              <p className="font-mono text-sm font-medium text-blastoff-text">${formatCompactNumber(token.marketCap || 0)}</p>
+              <p className="font-mono text-sm font-medium text-blastoff-text">${formatCompactNumber(token.marketCap ?? 0)}</p>
             </div>
             <div className="bg-blastoff-surface px-3 py-2">
               <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Volume</p>
-              <p className="font-mono text-sm font-medium text-blastoff-text">${formatCompactNumber(token.volume24h || 0)}</p>
-            </div>
-            <div className="bg-blastoff-surface px-3 py-2">
-              <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Liquidity</p>
-              <p className="font-mono text-sm font-medium text-blastoff-text">${formatCompactNumber(token.liquidity || 0)}</p>
+              <p className="font-mono text-sm font-medium text-blastoff-text">${formatCompactNumber(token.volume24h ?? 0)}</p>
             </div>
             <div className="bg-blastoff-surface px-3 py-2">
               <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Holders</p>
-              <p className="font-mono text-sm font-medium text-blastoff-text">{formatCompactNumber(token.holders || 0)}</p>
+              <p className="font-mono text-sm font-medium text-blastoff-text">{formatCompactNumber(token.holders ?? 0)}</p>
             </div>
             <div className="bg-blastoff-surface px-3 py-2">
               <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Txns 24h</p>
-              <p className="font-mono text-sm font-medium text-blastoff-text">{formatCompactNumber(token.txCount24h || 0)}</p>
+              <p className="font-mono text-sm font-medium text-blastoff-text">{formatCompactNumber(token.txCount24h ?? 0)}</p>
+            </div>
+            <div className="bg-blastoff-surface px-3 py-2">
+              <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Liquidity</p>
+              <p className="font-mono text-sm font-medium text-blastoff-text-muted">—</p>
             </div>
             <div className="bg-blastoff-surface px-3 py-2">
               <p className="text-[10px] text-blastoff-text-muted uppercase tracking-wide">Age</p>

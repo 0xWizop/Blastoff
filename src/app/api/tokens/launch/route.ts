@@ -7,9 +7,6 @@ import { db } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 
-// TokenFactory address on Base Sepolia
-const TOKEN_FACTORY_ADDRESS = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3' as const;
-
 function getChain(chainId?: number) {
   return chainId === 84532 ? baseSepolia : base;
 }
@@ -49,6 +46,7 @@ export async function POST(req: Request) {
 
     const chainConfig = getChainConfig(chainId);
     const contracts = getContracts(chainId);
+    const factoryAddress = contracts.TOKEN_FACTORY as Address | undefined;
 
     const client = createPublicClient({
       chain: getChain(chainConfig.chainId),
@@ -63,13 +61,13 @@ export async function POST(req: Request) {
       try {
         [tokenState, collateral] = await Promise.all([
           client.readContract({
-            address: TOKEN_FACTORY_ADDRESS,
+            address: factoryAddress,
             abi: tokenFactoryAbi,
             functionName: 'tokens',
             args: [tokenAddress as Address],
           }),
           client.readContract({
-            address: TOKEN_FACTORY_ADDRESS,
+            address: factoryAddress,
             abi: tokenFactoryAbi,
             functionName: 'collateral',
             args: [tokenAddress as Address],
@@ -117,7 +115,7 @@ export async function POST(req: Request) {
       try {
         // Refine estimate
         const requiredEth = await client.readContract({
-          address: TOKEN_FACTORY_ADDRESS,
+          address: factoryAddress,
           abi: tokenFactoryAbi,
           functionName: 'calculateRequiredBaseCoinExp',
           args: [tokenAddress as Address, estimatedTokens],
@@ -139,7 +137,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         status: 'ok',
         transaction: {
-          to: TOKEN_FACTORY_ADDRESS,
+          to: factoryAddress,
           data,
           value: ethAmount.toString(),
           gasLimit: '0x4c4b40', // 5M gas
@@ -225,6 +223,7 @@ export async function GET(req: Request) {
 
     const chainConfig = getChainConfig(chainId);
     const contracts = getContracts(chainId);
+    const factoryAddress = contracts.TOKEN_FACTORY as Address | undefined;
 
     const client = createPublicClient({
       chain: getChain(chainConfig.chainId),
@@ -240,13 +239,13 @@ export async function GET(req: Request) {
       try {
         [tokenState, collateral] = await Promise.all([
           client.readContract({
-            address: TOKEN_FACTORY_ADDRESS,
+            address: factoryAddress,
             abi: tokenFactoryAbi,
             functionName: 'tokens',
             args: [tokenAddress as Address],
           }),
           client.readContract({
-            address: TOKEN_FACTORY_ADDRESS,
+            address: factoryAddress,
             abi: tokenFactoryAbi,
             functionName: 'collateral',
             args: [tokenAddress as Address],
@@ -258,7 +257,7 @@ export async function GET(req: Request) {
           address: tokenAddress as Address,
           abi: erc20Abi,
           functionName: 'balanceOf',
-          args: [TOKEN_FACTORY_ADDRESS],
+          args: [factoryAddress],
         });
       } catch (e) {
         console.log('Could not get token state:', e);

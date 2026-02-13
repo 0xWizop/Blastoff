@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Token } from '@/types';
 import { useSwapQuote } from '@/hooks/useTokens';
 import { useBalances } from '@/hooks/useBalances';
 import { useSwap } from '@/hooks/useSwap';
+import { useTokenFactoryState, useTokenFactorySwap } from '@/hooks/useTokenFactory';
 import { useAppStore } from '@/store/useAppStore';
 import { ButtonSpinner } from './Spinner';
 
@@ -19,6 +20,7 @@ const slippageOptions = [0.5, 1, 2, 5];
 
 export function SwapPanel({ token }: SwapPanelProps) {
   const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const queryClient = useQueryClient();
   const { openModal, openModals, closeModal } = useAppStore();
   const [isBuy, setIsBuy] = useState(true);
@@ -30,16 +32,44 @@ export function SwapPanel({ token }: SwapPanelProps) {
   const wethBalance = balances?.weth?.formatted ?? 0;
   const tokenBalance = balances?.token?.formatted ?? 0;
 
-  // Swap execution hook
+  // ICO vs DEX: use TokenFactory buy/sell when token is in ICO on Base Sepolia
+  const { isICO, hasTokenFactory } = useTokenFactoryState(token.address);
+  const {
+    executeBuy: executeTokenFactoryBuy,
+    executeSell: executeTokenFactorySell,
+    status: tfStatus,
+    isPending: tfPending,
+    isSuccess: tfSuccess,
+    error: tfError,
+    reset: resetTokenFactory,
+  } = useTokenFactorySwap();
+
+  // DEX swap (graduated tokens / mainnet)
   const { executeSwap, status: txStatus, isPending, isSuccess, reset: resetSwap } = useSwap();
 
-  // Invalidate position and balances when swap confirms so Position panel and balances update
+  const useICO = isICO && hasTokenFactory;
+  const swapPending = useICO ? tfPending : isPending;
+  const swapSuccess = useICO ? tfSuccess : isSuccess;
+
+  // Invalidate and refetch all timeframes + token/price when swap confirms so everything updates
   useEffect(() => {
-    if (isSuccess && address) {
-      queryClient.invalidateQueries({ queryKey: ['userPosition', token.address, address] });
-      queryClient.invalidateQueries({ queryKey: ['balances'] });
+    if (!swapSuccess || !address) return;
+    const addr = token.address;
+    queryClient.invalidateQueries({ queryKey: ['userPosition', addr, address] });
+    queryClient.invalidateQueries({ queryKey: ['balances'] });
+    queryClient.invalidateQueries({ queryKey: ['token', addr, chainId] });
+    queryClient.invalidateQueries({ queryKey: ['tokenChart', addr] });
+    // Refetch so all chart timeframes and token data update immediately
+    queryClient.refetchQueries({ queryKey: ['token', addr, chainId] });
+    queryClient.refetchQueries({ queryKey: ['tokenChart', addr] });
+  }, [swapSuccess, address, token.address, chainId, queryClient]);
+
+  // Surface TokenFactory hook errors as toasts
+  useEffect(() => {
+    if (tfError) {
+      toast.error('Swap failed', { description: tfError });
     }
-  }, [isSuccess, address, token.address, queryClient]);
+  }, [tfError]);
 
   const { data: quote } = useSwapQuote({
     tokenAddress: token.address,
@@ -50,10 +80,11 @@ export function SwapPanel({ token }: SwapPanelProps) {
 
   const isDisabled = !isConnected;
 
+  // ICO: amount = token amount (like old snippet). DEX: amount = pay currency (ETH or token)
   const setPct = (pct: number) => {
-    const base = isBuy ? wethBalance : tokenBalance;
+    const base = useICO ? tokenBalance : (isBuy ? wethBalance : tokenBalance);
     const v = pct === 100 ? base : (base * pct) / 100;
-    const formatted = isBuy ? v.toFixed(4) : v.toFixed(0);
+    const formatted = useICO ? v.toFixed(0) : (isBuy ? v.toFixed(4) : v.toFixed(0));
     setAmount(formatted);
   };
 
@@ -69,46 +100,79 @@ export function SwapPanel({ token }: SwapPanelProps) {
   };
 
   const handleSwap = async () => {
-    if (isDisabled || !quote) return;
-    
-    const swapToast = toast.loading(
-      `${isBuy ? 'Buying' : 'Selling'} ${token.symbol}...`,
-      { description: 'Please confirm in your wallet' }
-    );
-    
-    try {
-      const result = await executeSwap({
-        tokenAddress: token.address,
-        inputAmount: parseFloat(amount),
-        outputAmount: quote.outputAmount,
-        isBuy,
-        slippage,
-      });
+    if (!isConnected) {
+      openModal('walletConnect');
+      toast.info('Connect your wallet to buy or sell', { description: 'Choose your wallet in the dropdown' });
+      return;
+    }
+    if (!amount || parseFloat(amount) <= 0) return;
 
-      if (result) {
-        toast.success(
-          `${isBuy ? 'Bought' : 'Sold'} ${token.symbol}!`,
-          {
+    const swapToast = toast.loading(
+      isBuy ? `Buying ${token.symbol}...` : `Selling ${token.symbol}...`,
+      { description: 'Confirm in your wallet' }
+    );
+
+    try {
+      if (useICO) {
+        // Old-snippet logic: amount = token amount for both buy and sell
+        const tokenAmount = parseFloat(amount);
+        if (!Number.isFinite(tokenAmount) || tokenAmount <= 0) {
+          toast.error('Enter token amount', { id: swapToast });
+          return;
+        }
+        const tokenDecimals = 18;
+        const result = isBuy
+          ? await executeTokenFactoryBuy({
+              tokenAddress: token.address,
+              tokenAmount,
+              tokenDecimals,
+            })
+          : await executeTokenFactorySell({
+              tokenAddress: token.address,
+              tokenAmount,
+              tokenDecimals,
+            });
+
+        if (result) {
+          toast.success(isBuy ? `Bought ${token.symbol}!` : `Sold ${token.symbol}!`, {
             id: swapToast,
-            description: `${isBuy ? 'Received' : 'Got'} ${quote.outputAmount.toFixed(4)} ${isBuy ? token.symbol : 'WETH'}`,
-          }
-        );
-        // Reset form on success
-        setTimeout(() => {
+            description: isBuy ? `Received ${tokenAmount.toFixed(0)} ${token.symbol}` : 'Received ETH',
+          });
+          setAmount('');
+          resetTokenFactory();
+        } else {
+          toast.error('Swap failed', {
+            id: swapToast,
+            description: tfError || 'Transaction rejected or failed',
+          });
+        }
+      } else {
+        if (!quote) {
+          toast.error('Could not get quote. Try again.', { id: swapToast });
+          return;
+        }
+        const result = await executeSwap({
+          tokenAddress: token.address,
+          inputAmount: parseFloat(amount),
+          outputAmount: quote.outputAmount,
+          isBuy,
+          slippage,
+        });
+
+        if (result) {
+          toast.success(
+            isBuy ? `Bought ${token.symbol}!` : `Sold ${token.symbol}!`,
+            { id: swapToast, description: `Received ${quote.outputAmount.toFixed(4)} ${isBuy ? token.symbol : 'WETH'}` }
+          );
           setAmount('');
           resetSwap();
-        }, 2000);
-      } else {
-        toast.error('Swap failed', {
-          id: swapToast,
-          description: 'Transaction was rejected or failed',
-        });
+        } else {
+          toast.error('Swap failed', { id: swapToast, description: 'Transaction rejected or failed' });
+        }
       }
-    } catch (error: any) {
-      toast.error('Swap failed', {
-        id: swapToast,
-        description: error?.message || 'Something went wrong',
-      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Something went wrong';
+      toast.error('Swap failed', { id: swapToast, description: msg });
     }
   };
 
@@ -187,11 +251,11 @@ export function SwapPanel({ token }: SwapPanelProps) {
         </button>
       </div>
 
-      {/* Input/Output Section */}
+      {/* Input/Output Section - ICO: amount = token amount (like old snippet) */}
       <div className="mb-3 space-y-2 sm:mb-4 sm:space-y-3">
         <div>
           <label className="mb-1 block text-xs text-blastoff-text-secondary">
-            {isBuy ? 'You pay' : 'You sell'}
+            {useICO ? 'Amount (tokens)' : isBuy ? 'You pay' : 'You sell'}
           </label>
           <div className="relative">
             <input
@@ -204,11 +268,9 @@ export function SwapPanel({ token }: SwapPanelProps) {
               disabled={isDisabled}
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blastoff-text-secondary sm:right-4 sm:text-sm">
-              {isBuy ? 'WETH' : token.symbol}
+              {useICO ? token.symbol : (isBuy ? 'WETH' : token.symbol)}
             </span>
           </div>
-          
-          {/* Percentage Buttons - Larger touch targets on mobile */}
           <div className="mt-2 grid grid-cols-4 gap-1.5 sm:gap-2">
             {[25, 50, 75, 100].map((pct) => (
               <button
@@ -221,13 +283,11 @@ export function SwapPanel({ token }: SwapPanelProps) {
               </button>
             ))}
           </div>
-          
           <p className="mt-1.5 text-[11px] text-blastoff-text-muted sm:mt-2 sm:text-xs">
-            Balance: {balancesLoading ? '...' : isBuy ? `${wethBalance.toFixed(4)} WETH` : `${tokenBalance.toLocaleString()} ${token.symbol}`}
+            Balance: {balancesLoading ? '...' : useICO ? `${tokenBalance.toLocaleString()} ${token.symbol}` : (isBuy ? `${wethBalance.toFixed(4)} WETH` : `${tokenBalance.toLocaleString()} ${token.symbol}`)}
           </p>
         </div>
 
-        {/* Arrow Separator */}
         <div className="flex justify-center py-1">
           <div className="bg-blastoff-border p-1.5 sm:p-2">
             <svg className="h-3.5 w-3.5 text-blastoff-text-secondary sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,20 +296,19 @@ export function SwapPanel({ token }: SwapPanelProps) {
           </div>
         </div>
 
-        {/* Output Field */}
         <div>
           <label className="mb-1 block text-xs text-blastoff-text-secondary">
-            {isBuy ? 'You receive' : 'You get'}
+            {useICO ? (isBuy ? 'You pay (ETH)' : 'You get (ETH)') : (isBuy ? 'You receive' : 'You get')}
           </label>
           <div className="relative">
             <input
               type="text"
-              value={quote?.outputAmount.toFixed(4) || '0.0'}
+              value={useICO ? '—' : (quote?.outputAmount != null ? quote.outputAmount.toFixed(4) : '0.0')}
               readOnly
               className="w-full border border-blastoff-border bg-blastoff-bg px-3 py-3 pr-16 text-base text-blastoff-text-secondary sm:px-4 sm:text-lg"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blastoff-text-secondary sm:right-4 sm:text-sm">
-              {isBuy ? token.symbol : 'WETH'}
+              {useICO ? 'ETH' : (isBuy ? token.symbol : 'WETH')}
             </span>
           </div>
         </div>
@@ -279,15 +338,15 @@ export function SwapPanel({ token }: SwapPanelProps) {
         >
           Connect Wallet
         </button>
-      ) : isPending ? (
+      ) : swapPending ? (
         <button
           disabled
           className="flex w-full items-center justify-center gap-2 bg-blastoff-orange/50 py-3.5 text-sm font-medium text-white sm:py-3"
         >
           <ButtonSpinner />
-          {txStatus === 'confirming' ? 'Confirming...' : 'Processing...'}
+          {useICO ? (tfStatus === 'confirming' ? 'Confirming...' : tfStatus === 'approve' ? 'Approve...' : 'Processing...') : txStatus === 'confirming' ? 'Confirming...' : 'Processing...'}
         </button>
-      ) : isSuccess ? (
+      ) : swapSuccess ? (
         <button
           disabled
           className="w-full bg-blastoff-success py-3.5 text-sm font-medium text-white sm:py-3"
@@ -295,17 +354,22 @@ export function SwapPanel({ token }: SwapPanelProps) {
           Success!
         </button>
       ) : (
-        <button
-          onClick={handleSwap}
-          disabled={!amount || parseFloat(amount) <= 0}
-          className={`w-full py-3.5 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted sm:py-3 ${
-            isBuy 
-              ? 'bg-blastoff-success/80 active:bg-blastoff-success sm:hover:bg-blastoff-success sm:hover:shadow-glow-green' 
-              : 'bg-blastoff-error/80 active:bg-blastoff-error sm:hover:bg-blastoff-error sm:hover:shadow-glow-red'
-          }`}
-        >
-          {isBuy ? 'Buy' : 'Sell'} {token.symbol}
-        </button>
+        <>
+          <button
+            onClick={handleSwap}
+            disabled={!amount || parseFloat(amount) <= 0}
+            className={`w-full py-3.5 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted sm:py-3 ${
+              isBuy 
+                ? 'bg-blastoff-success/80 active:bg-blastoff-success sm:hover:bg-blastoff-success sm:hover:shadow-glow-green' 
+                : 'bg-blastoff-error/80 active:bg-blastoff-error sm:hover:bg-blastoff-error sm:hover:shadow-glow-red'
+            }`}
+          >
+            {isBuy ? 'Buy' : 'Sell'} {token.symbol}
+          </button>
+          <p className="mt-1.5 text-center text-[10px] text-blastoff-text-muted">
+            Your wallet will open to confirm the transaction
+          </p>
+        </>
       )}
     </div>
   );

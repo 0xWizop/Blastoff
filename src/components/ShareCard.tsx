@@ -104,7 +104,7 @@ ${shareUrl}`;
           <div className="bg-black/30 p-4 mb-4">
             <p className="text-xs text-gray-500 mb-1">Price</p>
             <p className="text-3xl font-bold text-white font-mono">
-              ${token.price < 0.0001 ? token.price.toExponential(2) : token.price.toFixed(6)}
+              ${token.price > 0 && token.price < 0.0001 ? token.price.toFixed(8).replace(/\.?0+$/, '') || '0' : token.price.toFixed(6).replace(/\.?0+$/, '') || '0'}
             </p>
           </div>
 

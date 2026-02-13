@@ -24,5 +24,9 @@ export type { TokenBalance, Balances } from './useBalances';
 export { useSwap } from './useSwap';
 export type { SwapParams, SwapResult, SwapStatus } from './useSwap';
 
+// TokenFactory ICO buy/sell (Base Sepolia)
+export { useTokenFactoryState, useTokenFactorySwap } from './useTokenFactory';
+export type { TokenFactoryState, TokenFactorySwapStatus } from './useTokenFactory';
+
 // Real-time streaming hooks
 export { useTradeStream } from './useTradeStream';

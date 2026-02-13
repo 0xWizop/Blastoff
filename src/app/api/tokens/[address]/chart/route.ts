@@ -24,8 +24,8 @@ export async function GET(
     
     console.log(`[Chart API] Fetching data for token: ${tokenAddress}, chainId: ${chainId}`);
     
-    // Fetch trades from chain (get more for better chart data)
-    const trades = await getTokenTrades(tokenAddress, chainId, 200);
+    // Fetch enough trades for all timeframes (1m needs more for density)
+    const trades = await getTokenTrades(tokenAddress, chainId, 500);
     
     console.log(`[Chart API] Found ${trades.length} trades`);
     
@@ -98,7 +98,20 @@ export async function GET(
     });
   } catch (err) {
     console.error('Error fetching chart data:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    let fallbackPrice = 0.00003;
+    const tokenAddress = params?.address;
+    if (tokenAddress && isAddress(tokenAddress)) {
+      try {
+        const chainIdParam = req.url ? new URL(req.url).searchParams.get('chainId') : null;
+        const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
+        fallbackPrice = await getTokenPrice(tokenAddress as `0x${string}`, chainId);
+      } catch {
+        // keep 0.00003
+      }
+    }
+    return NextResponse.json({
+      candles: [],
+      debug: { currentPrice: fallbackPrice, note: 'Fallback after error' },
+    });
   }
 }

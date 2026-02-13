@@ -5,8 +5,9 @@ import { Spinner } from './Spinner';
 
 interface Holder {
   address: string;
-  balance: number;
+  balance: number | string; // API returns string (toLocaleString), support both
   percentage: number;
+  rank?: number;
   label?: string; // 'Creator', 'LP', 'Whale', etc.
 }
 
@@ -15,10 +16,15 @@ interface HolderDistributionProps {
   tokenSymbol: string;
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toFixed(0);
+/** Safe format for display; handles string (pre-formatted), number, or invalid. */
+function formatNumber(num: unknown): string {
+  if (num === null || num === undefined) return '0';
+  if (typeof num === 'string') return num; // already formatted from API
+  const n = Number(num);
+  if (!Number.isFinite(n)) return '0';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n >= 1 ? n.toFixed(0) : n.toFixed(4);
 }
 
 function shortenAddress(address: string): string {
@@ -51,13 +57,14 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
       setError(null);
       
       try {
-        const response = await fetch(`/api/tokens/${tokenAddress}/holders`);
+        const response = await fetch(`/api/tokens/${tokenAddress}/holders?limit=50`);
         if (!response.ok) {
           throw new Error('Failed to fetch holders');
         }
         const data = await response.json();
-        setHolders(data.holders || []);
-        setTotalHolders(data.totalHolders || 0);
+        const list = Array.isArray(data.holders) ? data.holders : [];
+        setHolders(list);
+        setTotalHolders(Number(data.totalHolders) ?? list.length);
       } catch (err) {
         // API not implemented yet
         setError('Holder data requires backend integration');
@@ -71,8 +78,8 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
     loadHolders();
   }, [tokenAddress]);
 
-  // Calculate concentration metrics
-  const top10Pct = holders.slice(0, 10).reduce((sum, h) => sum + h.percentage, 0);
+  // Calculate concentration metrics (percentage may be number or string from API)
+  const top10Pct = holders.slice(0, 10).reduce((sum, h) => sum + (Number(h.percentage) || 0), 0);
   const isConcentrated = top10Pct > 80;
 
   if (isLoading) {
@@ -117,7 +124,7 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
           <span className="text-sm font-medium text-blastoff-text">Holders</span>
         </div>
         <span className="text-xs text-blastoff-text-secondary">
-          {totalHolders.toLocaleString()} total
+          {Number(totalHolders).toLocaleString()} total
         </span>
       </div>
 
@@ -128,8 +135,8 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
             <div
               key={holder.address}
               className={`${COLORS[i]} transition-all`}
-              style={{ width: `${holder.percentage}%` }}
-              title={`${shortenAddress(holder.address)}: ${holder.percentage.toFixed(1)}%`}
+              style={{ width: `${Number(holder.percentage) || 0}%` }}
+              title={`${shortenAddress(holder.address)}: ${(Number(holder.percentage) || 0).toFixed(1)}%`}
             />
           ))}
         </div>
@@ -161,7 +168,7 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
                     <span className="text-xs text-blastoff-text">Others</span>
                   ) : (
                     <a
-                      href={`https://basescan.org/address/${holder.address.split('...')[0]}`}
+                      href={`https://sepolia.basescan.org/address/${holder.address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs text-blastoff-text hover:text-blastoff-orange transition-colors"
@@ -187,7 +194,7 @@ export function HolderDistribution({ tokenAddress, tokenSymbol }: HolderDistribu
             </div>
             <div className="text-right">
               <p className="text-xs font-medium text-blastoff-text">
-                {holder.percentage.toFixed(2)}%
+                {(Number(holder.percentage) || 0).toFixed(2)}%
               </p>
             </div>
           </div>

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { isAddress, createPublicClient, http, formatUnits, parseAbi } from 'viem';
 import { baseSepolia } from 'viem/chains';
+import { getContracts } from '@/config/contracts';
 
 export const runtime = 'nodejs';
 
-const TOKEN_FACTORY = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3';
+const TOKEN_FACTORY = getContracts(84532).TOKEN_FACTORY || '';
 
 const tokenFactoryAbi = parseAbi([
   'function tokens(address) view returns (uint8)',

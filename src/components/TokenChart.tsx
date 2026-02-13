@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useChainId } from 'wagmi';
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time } from 'lightweight-charts';
 import { useTokenChart } from '@/hooks/useTokens';
 import { InlineLoader } from './Spinner';
@@ -28,10 +29,12 @@ const timeframes = [
   { label: '1D', value: '1d' },
 ] as const;
 
+/** Format price as decimal (e.g. 0.00003 not 3e-5) for readability */
 function formatPrice(price: number): string {
-  if (price < 0.0001) return price.toExponential(4);
-  if (price < 0.01) return price.toFixed(6);
-  if (price < 1) return price.toFixed(4);
+  if (price <= 0 || !Number.isFinite(price)) return '0';
+  if (price < 0.0001) return price.toFixed(8).replace(/\.?0+$/, '') || '0';
+  if (price < 0.01) return price.toFixed(6).replace(/\.?0+$/, '') || '0';
+  if (price < 1) return price.toFixed(4).replace(/\.?0+$/, '') || '0';
   if (price < 1000) return price.toFixed(2);
   return price.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
@@ -72,7 +75,8 @@ export function TokenChart({ address }: TokenChartProps) {
   const [timeframe, setTimeframe] = useState<string>('1m');
   const [ohlc, setOhlc] = useState<OHLCData | null>(null);
   const [isHovering, setIsHovering] = useState(false);
-  const { data: chartData, isLoading } = useTokenChart(address, timeframe);
+  const chainId = useChainId();
+  const { data: chartData, isLoading } = useTokenChart(address, timeframe, chainId);
 
   // Get current/latest candle data
   const currentCandle = chartData && chartData.length > 0 ? chartData[chartData.length - 1] : null;
@@ -127,13 +131,15 @@ export function TokenChart({ address }: TokenChartProps) {
         fontSize: 11,
       },
       grid: {
-        vertLines: { 
-          color: 'rgba(255, 255, 255, 0.06)',
+        vertLines: {
+          color: 'rgba(255, 255, 255, 0.12)',
           visible: true,
+          style: 1,
         },
-        horzLines: { 
-          color: 'rgba(255, 255, 255, 0.06)',
+        horzLines: {
+          color: 'rgba(255, 255, 255, 0.14)',
           visible: true,
+          style: 1,
         },
       },
       width: chartContainerRef.current.clientWidth,
@@ -153,39 +159,42 @@ export function TokenChart({ address }: TokenChartProps) {
           labelBackgroundColor: '#ff6b00',
         },
       },
+      leftPriceScale: { visible: false },
       timeScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.2)',
         borderVisible: true,
         timeVisible: true,
         secondsVisible: false,
-        barSpacing: 12,
-        minBarSpacing: 4,
+        barSpacing: 6,
+        minBarSpacing: 2,
         fixLeftEdge: false,
         fixRightEdge: false,
-        tickMarkFormatter: (time: number) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-          });
+        tickMarkFormatter: (time: unknown, tickMarkType: number) => {
+          const date = typeof time === 'number' ? new Date(time * 1000) : new Date((time as { year?: number; month?: number; day?: number })?.year ?? 0, ((time as { month?: number })?.month ?? 1) - 1, (time as { day?: number })?.day ?? 1);
+          // TickMarkType: Year=0, Month=1, DayOfMonth=2, Time=3, TimeWithSeconds=4
+          if (tickMarkType <= 1) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          if (tickMarkType === 2) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         },
       },
       rightPriceScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        visible: true,
+        borderColor: 'rgba(255, 255, 255, 0.25)',
         borderVisible: true,
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.2,
-        },
+        scaleMargins: { top: 0.1, bottom: 0.2 },
         autoScale: true,
         alignLabels: true,
+        entireTextOnly: false,
+        ticksVisible: true,
+        minimumWidth: 90,
+        textColor: '#d0d0d0',
       },
       localization: {
         priceFormatter: (price: number) => {
-          if (price < 0.0001) return price.toExponential(2);
-          if (price < 0.01) return price.toFixed(6);
-          if (price < 1) return price.toFixed(4);
+          if (price <= 0 || !Number.isFinite(price)) return '0';
+          if (price < 0.0001) return price.toFixed(8).replace(/\.?0+$/, '') || '0';
+          if (price < 0.01) return price.toFixed(6).replace(/\.?0+$/, '') || '0';
+          if (price < 1) return price.toFixed(4).replace(/\.?0+$/, '') || '0';
           return price.toFixed(2);
         },
       },
@@ -202,17 +211,39 @@ export function TokenChart({ address }: TokenChartProps) {
       },
     });
 
-    // Candlestick series
+    // Flat/doji candles (O≈H≈L≈C) render as thin lines. Enforce a minimum body = % of price so they have visible height.
+    const minSpreadPct = 0.02; // 2% of price – candles get visibly taller on the Y axis
+    const normalizedCandles = chartData.map((c) => {
+      const { open, high, low, close } = c;
+      const range = Math.max(high - low, Math.abs(close - open), 1e-15);
+      const priceLevel = Math.abs(close) || 1e-9;
+      const minSpread = priceLevel * minSpreadPct;
+      const isFlat = range < minSpread;
+      if (!isFlat) return c;
+      const half = minSpread / 2;
+      return {
+        ...c,
+        open: close - half,
+        high: close + half,
+        low: close - half,
+        close,
+      };
+    });
+
+    // Candlestick series – full bodies, clear wicks; title shows as Y-axis label
     const candlestickSeries = chart.addCandlestickSeries({
+      title: 'Price (ETH)',
       upColor: '#22c55e',
       downColor: '#ef4444',
       borderUpColor: '#22c55e',
       borderDownColor: '#ef4444',
       wickUpColor: '#22c55e',
       wickDownColor: '#ef4444',
+      borderVisible: true,
+      wickVisible: true,
     });
 
-    candlestickSeries.setData(chartData);
+    candlestickSeries.setData(normalizedCandles);
     candleSeriesRef.current = candlestickSeries;
 
     // Volume series
@@ -240,15 +271,28 @@ export function TokenChart({ address }: TokenChartProps) {
     volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
-    // Set visible range to show last ~50 candles if we have enough data
-    if (chartData.length > 50) {
-      const from = chartData[chartData.length - 50].time;
+    // Zoom out: show more candles (last ~100) for better context
+    const visibleCandles = Math.min(100, Math.max(30, chartData.length));
+    if (chartData.length >= visibleCandles) {
+      const from = chartData[chartData.length - visibleCandles].time;
       const to = chartData[chartData.length - 1].time;
       chart.timeScale().setVisibleRange({ from, to });
     } else {
       chart.timeScale().fitContent();
     }
-    
+
+    // Ensure right price scale shows all tick levels (per TradingView price scale docs)
+    try {
+      chart.priceScale('right').applyOptions({
+        visible: true,
+        entireTextOnly: false,
+        ticksVisible: true,
+        borderVisible: true,
+        textColor: '#d0d0d0',
+        minimumWidth: 90,
+      });
+    } catch (_) {}
+
     chartRef.current = chart;
 
     // Subscribe to crosshair move
@@ -364,7 +408,14 @@ export function TokenChart({ address }: TokenChartProps) {
           <p className="text-xs text-blastoff-text-muted mt-1">Chart will populate when trades occur</p>
         </div>
       ) : (
-        <div ref={chartContainerRef} className="flex-1 w-full min-h-0" />
+        <div className="relative flex-1 w-full min-h-0 overflow-visible">
+          <div ref={chartContainerRef} className="absolute inset-0 w-full h-full min-w-0" />
+          <div className="absolute left-3 top-2 pointer-events-none z-10">
+            <span className="text-[10px] font-semibold text-blastoff-text-muted uppercase tracking-wider">
+              Price (ETH)
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );

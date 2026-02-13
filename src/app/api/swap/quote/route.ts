@@ -1,28 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, formatUnits, http, isAddress, parseUnits, type Address } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
-import { uniswapV3QuoterAbi, tokenFactoryAbi, erc20Abi } from '@/lib/abis';
+import { uniswapV3QuoterAbi, tokenFactoryAbi } from '@/lib/abis';
 import { getChainConfig, getContracts } from '@/config/contracts';
-import { db } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
-
-// TokenFactory address on Base Sepolia
-const TOKEN_FACTORY_ADDRESS = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3' as const;
 
 function getChain(chainId?: number) {
   return chainId === 84532 ? baseSepolia : base;
 }
 
-async function getTokenDecimals(tokenAddress: `0x${string}`): Promise<number> {
-  try {
-    const doc = await db.collection('TokenData').doc(tokenAddress).get();
-    const data = doc.data();
-    if (data?.decimals) return Number(data.decimals);
-  } catch {
-    // fallback below
-  }
-  return 18;
+// Token decimals: 18 for Base Sepolia ICO tokens (no Firebase dependency in quote path)
+function getTokenDecimalsForQuote(_tokenAddress: string, chainId: number): number {
+  return chainId === 84532 ? 18 : 18;
 }
 
 /**
@@ -31,17 +21,17 @@ async function getTokenDecimals(tokenAddress: `0x${string}`): Promise<number> {
  */
 async function calculateICOPriceImpact(
   client: ReturnType<typeof createPublicClient>,
+  factoryAddress: Address,
   tokenAddress: Address,
   amountIn: bigint,
   isBuy: boolean
 ): Promise<{ priceImpact: number; outputAmount: number; fee: number }> {
   try {
-    // For ICO tokens, use the bonding curve calculation
     if (isBuy) {
       // Get current price for 1 token
       const oneToken = BigInt(1e18);
       const currentPriceForOne = await client.readContract({
-        address: TOKEN_FACTORY_ADDRESS,
+        address: factoryAddress,
         abi: tokenFactoryAbi,
         functionName: 'calculateRequiredBaseCoinExp',
         args: [tokenAddress, oneToken],
@@ -60,7 +50,7 @@ async function calculateICOPriceImpact(
         
         try {
           const requiredEth = await client.readContract({
-            address: TOKEN_FACTORY_ADDRESS,
+            address: factoryAddress,
             abi: tokenFactoryAbi,
             functionName: 'calculateRequiredBaseCoinExp',
             args: [tokenAddress, midTokens],
@@ -101,7 +91,7 @@ async function calculateICOPriceImpact(
       // For now, return conservative estimates
       const oneToken = BigInt(1e18);
       const priceForOne = await client.readContract({
-        address: TOKEN_FACTORY_ADDRESS,
+        address: factoryAddress,
         abi: tokenFactoryAbi,
         functionName: 'calculateRequiredBaseCoinExp',
         args: [tokenAddress, oneToken],
@@ -154,46 +144,61 @@ async function calculateDEXPriceImpact(
   };
 }
 
+function zeroQuote(inputAmount: number) {
+  return NextResponse.json({
+    quote: {
+      inputAmount,
+      outputAmount: 0,
+      priceImpact: 0,
+      fee: 0,
+    },
+  });
+}
+
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const tokenAddress = url.searchParams.get('tokenAddress');
+  const inputAmount = url.searchParams.get('inputAmount');
+  const isBuy = url.searchParams.get('isBuy');
+  const slippage = url.searchParams.get('slippage');
+  const chainIdParam = url.searchParams.get('chainId');
+  const chainId = chainIdParam ? Number(chainIdParam) : 84532;
+  const feeTierParam = url.searchParams.get('feeTier');
+
+  if (!tokenAddress || !isAddress(tokenAddress)) {
+    return NextResponse.json({ error: 'Invalid token address' }, { status: 400 });
+  }
+  if (!inputAmount || Number(inputAmount) <= 0) {
+    return NextResponse.json({ error: 'Invalid input amount' }, { status: 400 });
+  }
+
+  const inputAmountNum = Number(inputAmount);
+  const isBuyBool = isBuy === 'true';
+  const feeTier = feeTierParam ? Number(feeTierParam) : 3000;
+  // Normalize chainId so getChainConfig never receives invalid id
+  const safeChainId = (chainId === 8453 || chainId === 84532) ? chainId : 84532;
+
   try {
-    const url = new URL(req.url);
-    const tokenAddress = url.searchParams.get('tokenAddress');
-    const inputAmount = url.searchParams.get('inputAmount');
-    const isBuy = url.searchParams.get('isBuy');
-    const slippage = url.searchParams.get('slippage');
-    const chainIdParam = url.searchParams.get('chainId');
-    const chainId = chainIdParam ? Number(chainIdParam) : undefined;
-    const feeTierParam = url.searchParams.get('feeTier');
-
-    if (!tokenAddress || !isAddress(tokenAddress)) {
-      return NextResponse.json({ error: 'Invalid token address' }, { status: 400 });
-    }
-    if (!inputAmount || Number(inputAmount) <= 0) {
-      return NextResponse.json({ error: 'Invalid input amount' }, { status: 400 });
-    }
-
-    const isBuyBool = isBuy === 'true';
-    const feeTier = feeTierParam ? Number(feeTierParam) : 3000;
-
-    const chainConfig = getChainConfig(chainId);
-    const contracts = getContracts(chainId);
+    const chainConfig = getChainConfig(safeChainId);
+    const contracts = getContracts(safeChainId);
 
     const client = createPublicClient({
       chain: getChain(chainConfig.chainId),
       transport: http(chainConfig.rpcUrl),
     });
 
-    const tokenDecimals = await getTokenDecimals(tokenAddress as `0x${string}`);
+    const tokenDecimals = getTokenDecimalsForQuote(tokenAddress, safeChainId);
     const inputDecimals = isBuyBool ? 18 : tokenDecimals;
     const outputDecimals = isBuyBool ? tokenDecimals : 18;
     const amountIn = parseUnits(inputAmount, inputDecimals);
 
     // Check if token is in ICO phase (Base Sepolia with TokenFactory)
-    if (chainConfig.chainId === 84532 && contracts.TOKEN_FACTORY) {
+    const factoryAddress = contracts.TOKEN_FACTORY as Address | undefined;
+    if (chainConfig.chainId === 84532 && factoryAddress) {
       try {
         // Check token state from factory
         const tokenState = await client.readContract({
-          address: TOKEN_FACTORY_ADDRESS,
+          address: factoryAddress,
           abi: tokenFactoryAbi,
           functionName: 'tokens',
           args: [tokenAddress as Address],
@@ -204,6 +209,7 @@ export async function GET(req: Request) {
           // Token is in ICO phase - use bonding curve calculation
           const icoQuote = await calculateICOPriceImpact(
             client,
+            factoryAddress,
             tokenAddress as Address,
             amountIn,
             isBuyBool
@@ -219,13 +225,13 @@ export async function GET(req: Request) {
           });
         }
       } catch (error) {
-        console.log('Token not in factory, trying DEX quote');
+        console.log('Token not in factory or ICO quote failed:', error instanceof Error ? error.message : error);
       }
     }
 
-    // Fallback to DEX quote (Uniswap V3)
+    // Fallback to DEX quote (Uniswap V3) - Base Sepolia has no V3 quoter, return zero quote
     if (!contracts.UNISWAP_V3_QUOTER) {
-      return NextResponse.json({ error: 'Uniswap V3 quoter not configured for this chain' }, { status: 500 });
+      return zeroQuote(inputAmountNum);
     }
 
     const tokenIn = isBuyBool ? contracts.WETH : (tokenAddress as `0x${string}`);
@@ -239,11 +245,9 @@ export async function GET(req: Request) {
     });
 
     const outputAmount = Number(formatUnits(amountOut, outputDecimals));
-    const inputAmountNum = Number(inputAmount);
 
-    // Calculate price impact for DEX trades
     const { priceImpact, fee } = await calculateDEXPriceImpact(
-      isBuyBool ? inputAmountNum : outputAmount, // ETH amount
+      isBuyBool ? inputAmountNum : outputAmount,
       outputAmount,
       feeTier
     );
@@ -259,6 +263,10 @@ export async function GET(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Swap quote error:', message);
+    // Base Sepolia: never 500 so swap form always works
+    if (safeChainId === 84532) {
+      return zeroQuote(inputAmountNum);
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

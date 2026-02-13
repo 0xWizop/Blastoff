@@ -104,29 +104,32 @@ export function useTokensPaginated(filters?: FilterState, page: number = 1) {
   });
 }
 
-export function useToken(address: string) {
+export function useToken(address: string, options?: { refetchInterval?: number; chainId?: number }) {
+  const chainId = options?.chainId;
   return useQuery({
-    queryKey: ['token', address],
+    queryKey: ['token', address, chainId],
     queryFn: async (): Promise<Token | null> => {
-      const { token } = await fetchJson<{ token: Token | null }>(`/api/tokens/${address}`);
+      const q = chainId != null ? `?chainId=${chainId}` : '';
+      const { token } = await fetchJson<{ token: Token | null }>(`/api/tokens/${address}${q}`);
       return token;
     },
     enabled: !!address,
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 
 /**
- * Fetch OHLCV chart data for a token
- * 
- * TODO [Backend]: Implement GET /api/tokens/[address]/chart?timeframe=1m
- * Expected response: { candles: ChartCandle[] }
+ * Fetch OHLCV chart data for a token.
+ * Pass chainId so the correct chain's trades/prices are used.
  */
-export function useTokenChart(address: string, timeframe: string = '1m') {
+export function useTokenChart(address: string, timeframe: string = '1m', chainId?: number) {
   return useQuery({
-    queryKey: ['tokenChart', address, timeframe],
+    queryKey: ['tokenChart', address, timeframe, chainId],
     queryFn: async (): Promise<ChartCandle[]> => {
+      const params = new URLSearchParams({ timeframe });
+      if (chainId != null) params.set('chainId', String(chainId));
       const { candles } = await fetchJson<{ candles: ChartCandle[] }>(
-        `/api/tokens/${address}/chart?timeframe=${timeframe}`
+        `/api/tokens/${address}/chart?${params}`
       );
       return candles || [];
     },

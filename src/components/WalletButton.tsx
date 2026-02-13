@@ -112,6 +112,7 @@ const WalletIcon = ({ name }: { name: string }) => {
 };
 
 export function WalletButton() {
+  const [mounted, setMounted] = useState(false);
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { connect, connectors, isPending, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
@@ -121,7 +122,11 @@ export function WalletButton() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNetworkMenu, setShowNetworkMenu] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
-  
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Track if we've shown the connected toast to prevent duplicates
   const hasShownConnectedToast = useRef(false);
   const lastConnectedAddress = useRef<string | null>(null);
@@ -136,26 +141,28 @@ export function WalletButton() {
     }
   }, [connectError]);
 
-  // Close modal on successful connection - only show toast once per address
+  // Defer modal close and toast to a macrotask so we never update during another component's render (e.g. Hydrate)
   useEffect(() => {
-    if (isConnected && address) {
+    if (!isConnected || !address) {
+      if (!isConnected) {
+        hasShownConnectedToast.current = false;
+        lastConnectedAddress.current = null;
+      }
+      return;
+    }
+    const t = setTimeout(() => {
       closeModal('walletConnect');
       setConnectingWallet(null);
-      
-      // Only show toast if it's a new connection (not reconnection)
       if (!hasShownConnectedToast.current || lastConnectedAddress.current !== address) {
         hasShownConnectedToast.current = true;
         lastConnectedAddress.current = address;
         toast.success('Wallet connected!', {
           description: shortenAddress(address),
-          id: 'wallet-connected', // Unique ID prevents duplicates
+          id: 'wallet-connected',
         });
       }
-    } else if (!isConnected) {
-      // Reset when disconnected
-      hasShownConnectedToast.current = false;
-      lastConnectedAddress.current = null;
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, [isConnected, address, closeModal]);
 
   const handleConnect = useCallback((connector: typeof connectors[0]) => {
@@ -203,6 +210,18 @@ export function WalletButton() {
   const currentChain = SUPPORTED_CHAINS.find(c => c.id === chainId);
   const networkName = currentChain?.name || 'Unknown Network';
   const isUnsupportedNetwork = !currentChain;
+
+  // Avoid setState during Wagmi Hydrate render: render placeholder until mounted
+  if (!mounted) {
+    return (
+      <button
+        className="bg-blastoff-orange px-4 py-2 text-sm font-medium text-white h-[38px] opacity-70"
+        disabled
+      >
+        Connect Wallet
+      </button>
+    );
+  }
 
   // Show loading state during connection/reconnection
   if (isConnecting || isReconnecting) {

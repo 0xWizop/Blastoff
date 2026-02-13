@@ -1,9 +1,10 @@
 import { parseAbi } from 'viem';
 
-// TokenFactory ABI - for token creation and ICO buys
+// TokenFactory ABI - for token creation, ICO buy/sell
 export const tokenFactoryAbi = parseAbi([
   'function createToken(string name, string ticker) external returns (address)',
   'function buy(address tokenAddress, uint256 amount) external payable',
+  'function sell(address tokenAddress, uint256 amount) external',
   'function withdraw(address tokenAddress, address to) external',
   'function tokens(address) view returns (uint8)',
   'function collateral(address) view returns (uint256)',
@@ -18,7 +19,7 @@ export const tokenFactoryAbi = parseAbi([
   'event TokenMinted(address indexed tokenAddress, address indexed creator)',
 ]);
 
-// ERC20 ABI - with Transfer event for tracking holder changes
+// ERC20 ABI - with Transfer event and approve for sells
 export const erc20Abi = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
@@ -26,6 +27,7 @@ export const erc20Abi = parseAbi([
   'function name() view returns (string)',
   'function totalSupply() view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event Approval(address indexed owner, address indexed spender, uint256 value)',
 ]);

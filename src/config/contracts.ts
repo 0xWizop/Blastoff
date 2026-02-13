@@ -24,12 +24,12 @@ export const CONTRACTS_BY_CHAIN: Record<
     LAUNCHPAD: '',
   },
   84532: {
-    // Base Sepolia
+    // Base Sepolia - TokenFactory with working buy/sell
     WETH: '0x4200000000000000000000000000000000000006',
     UNISWAP_V3_ROUTER: '',
     UNISWAP_V3_QUOTER: '',
     AERODROME_ROUTER: '',
-    TOKEN_FACTORY: '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3',
+    TOKEN_FACTORY: '0x03048F2a3b2cf787cEaa9a83B0fFcCB72D32eb56',
     LAUNCHPAD: '',
   },
 } as const;
