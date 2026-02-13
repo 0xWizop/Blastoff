@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trade } from '@/types';
 import { Spinner } from './Spinner';
+import { useTradeStream } from '@/hooks/useTradeStream';
 
 interface RecentTradesProps {
   tokenAddress: string;
@@ -36,7 +37,32 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
   const [error, setError] = useState<string | null>(null);
   const [newTradeId, setNewTradeId] = useState<string | null>(null);
 
-  // Fetch trades from API
+  // Handle incoming live trades
+  const handleNewTrade = useCallback((trade: Trade) => {
+    setTrades(prev => {
+      // Check if trade already exists
+      if (prev.some(t => t.id === trade.id)) return prev;
+      // Add new trade at the beginning, limit to 10
+      return [trade, ...prev].slice(0, 10);
+    });
+    
+    // Mark as new for animation
+    setNewTradeId(trade.id);
+    
+    // Remove "new" status after animation
+    setTimeout(() => {
+      setNewTradeId(prev => prev === trade.id ? null : prev);
+    }, 2000);
+  }, []);
+
+  // Connect to live trade stream
+  const { isConnected } = useTradeStream({
+    tokenAddress,
+    enabled: true,
+    onTrade: handleNewTrade,
+  });
+
+  // Fetch initial trades from API
   useEffect(() => {
     const loadTrades = async () => {
       setIsLoading(true);
@@ -50,8 +76,8 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
         const data = await response.json();
         setTrades(data.trades || []);
       } catch (err) {
-        // API not implemented yet
-        setError('Awaiting backend');
+        // API returned error - continue with live stream
+        setError(null);
         setTrades([]);
       } finally {
         setIsLoading(false);
@@ -60,8 +86,6 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
 
     loadTrades();
   }, [tokenAddress]);
-
-  // TODO: Implement WebSocket for live updates
 
   const buyCount = trades.filter((t) => t.type === 'buy').length;
   const sellCount = trades.filter((t) => t.type === 'sell').length;
@@ -73,8 +97,8 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-blastoff-text">Trades</span>
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+            <span className={`absolute inline-flex h-full w-full rounded-full ${isConnected ? 'animate-ping bg-green-400 opacity-75' : 'bg-gray-400 opacity-50'}`} />
+            <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
           </span>
         </div>
         {trades.length > 0 && (
@@ -98,7 +122,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <p className="text-[10px] text-blastoff-text-muted">
-              {error || 'No trades yet'}
+              {error || (isConnected ? 'Waiting for live trades...' : 'No trades yet')}
             </p>
           </div>
         ) : (
@@ -145,7 +169,12 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
       {/* Footer */}
       <div className="shrink-0 px-3 py-1.5 border-t border-blastoff-border bg-blastoff-bg/50">
         <p className="text-[9px] text-blastoff-text-muted text-center">
-          {trades.length > 0 ? `Live • Last ${trades.length} trades` : 'Waiting for trades...'}
+          {trades.length > 0 
+            ? `${isConnected ? 'Live' : 'Offline'} • Last ${trades.length} trades` 
+            : isConnected 
+              ? 'Streaming...'
+              : 'Waiting for trades...'
+          }
         </p>
       </div>
     </div>

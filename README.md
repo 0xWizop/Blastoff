@@ -130,7 +130,7 @@ All routes are deep-linkable with URL query param sync for filters.
 - No admin panel
 - No social features
 - No advanced chart indicators
-- No bonding curves or graduation logic
+- No presales—fair launches only (straight to Uniswap & Aerodrome)
 
 ## License
 

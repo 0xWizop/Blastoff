@@ -122,7 +122,7 @@ export async function GET(
     results.tokenContractError = String(e);
   }
   
-  // Test 5: Check factory balance of token (tokens available for sale)
+  // Test 5: Check factory balance of token (tokens held by factory)
   try {
     const factoryBalance = await client.readContract({
       address: tokenAddress as `0x${string}`,
@@ -132,7 +132,7 @@ export async function GET(
     });
     results.factoryBalanceWei = String(factoryBalance);
     results.factoryBalance = formatUnits(factoryBalance, 18);
-    results.tokensAvailableForSale = formatUnits(factoryBalance, 18);
+    results.tokensHeldByFactory = formatUnits(factoryBalance, 18);
   } catch (e) {
     results.factoryBalanceError = String(e);
   }

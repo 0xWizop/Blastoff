@@ -9,7 +9,7 @@ import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'BLASTOFF - Fair Launchpad on Base',
-  description: 'Fair launches on Base chain',
+  description: 'Fair launches on Base—no presales. Tokens go straight to Uniswap & Aerodrome.',
   other: {
     'mobile-web-app-capable': 'yes',
   },

@@ -25,14 +25,15 @@ export function useTokens(filters?: FilterState) {
       
       if (filters) {
         if (filters.search) {
-          const search = filters.search.toLowerCase();
+          const search = filters.search.toLowerCase().trim();
           tokens = tokens.filter(
             (t) =>
               t.name.toLowerCase().includes(search) ||
-              t.symbol.toLowerCase().includes(search)
+              t.symbol.toLowerCase().includes(search) ||
+              (t.address && t.address.toLowerCase().includes(search))
           );
         }
-        
+
         switch (filters.sort) {
           case 'marketCap':
             tokens.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
@@ -45,7 +46,7 @@ export function useTokens(filters?: FilterState) {
             break;
         }
       }
-      
+
       return tokens;
     },
     staleTime: 30000,
@@ -64,14 +65,15 @@ export function useTokensPaginated(filters?: FilterState, page: number = 1) {
       
       if (filters) {
         if (filters.search) {
-          const search = filters.search.toLowerCase();
+          const search = filters.search.toLowerCase().trim();
           tokens = tokens.filter(
             (t) =>
               t.name.toLowerCase().includes(search) ||
-              t.symbol.toLowerCase().includes(search)
+              t.symbol.toLowerCase().includes(search) ||
+              (t.address && t.address.toLowerCase().includes(search))
           );
         }
-        
+
         switch (filters.sort) {
           case 'marketCap':
             tokens.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
@@ -84,7 +86,7 @@ export function useTokensPaginated(filters?: FilterState, page: number = 1) {
             break;
         }
       }
-      
+
       const total = tokens.length;
       const totalPages = Math.ceil(total / TOKENS_PER_PAGE);
       const start = (page - 1) * TOKENS_PER_PAGE;

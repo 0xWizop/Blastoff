@@ -3,6 +3,9 @@ import { baseSepolia, base } from 'viem/chains';
 import { erc20Abi, uniswapV2PairAbi, uniswapV2FactoryAbi, tokenFactoryAbi } from './abis';
 import { getChainConfig, getContracts } from '@/config/contracts';
 
+// Base Sepolia (and many RPCs) limit eth_getLogs to 10,000 blocks per request
+const RPC_MAX_BLOCK_RANGE = 10_000n;
+
 // Contract addresses for Base Sepolia
 const TOKEN_FACTORY_ADDRESS = '0x7E7618828FE3e2BA6a81d609E7904E3CE2c15fB3' as const;
 
@@ -63,6 +66,42 @@ export function getClient(chainId?: number) {
     chain,
     transport: http(config.rpcUrl),
   });
+}
+
+type GetLogsParams = Parameters<ReturnType<typeof createPublicClient>['getLogs']>[0];
+
+/**
+ * Fetch logs in chunks to respect RPC limit (e.g. 10,000 blocks for Base Sepolia).
+ */
+async function getLogsChunked(
+  client: ReturnType<typeof createPublicClient>,
+  params: GetLogsParams
+): Promise<Log[]> {
+  const toBlock = params.toBlock === 'latest' ? await client.getBlockNumber() : params.toBlock;
+  const fromBlock = params.fromBlock ?? 0n;
+  if (fromBlock > toBlock) return [];
+
+  const allLogs: Log[] = [];
+  let currentFrom = fromBlock;
+
+  while (currentFrom <= toBlock) {
+    const currentTo =
+      currentFrom + RPC_MAX_BLOCK_RANGE - 1n > toBlock
+        ? toBlock
+        : currentFrom + RPC_MAX_BLOCK_RANGE - 1n;
+
+    const logs = await client.getLogs({
+      ...params,
+      fromBlock: currentFrom,
+      toBlock: currentTo,
+    });
+    allLogs.push(...logs);
+
+    if (currentTo >= toBlock) break;
+    currentFrom = currentTo + 1n;
+  }
+
+  return allLogs;
 }
 
 /**
@@ -226,7 +265,7 @@ export async function getUniswapV2Pair(
 }
 
 /**
- * Fetch ERC20 Transfer events for a token
+ * Fetch ERC20 Transfer events for a token (chunked for RPC block range limit)
  */
 export async function getTransferEvents(
   tokenAddress: Address,
@@ -237,7 +276,7 @@ export async function getTransferEvents(
   const client = getClient(chainId);
   
   try {
-    const logs = await client.getLogs({
+    const logs = await getLogsChunked(client, {
       address: tokenAddress,
       event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
       fromBlock,
@@ -252,7 +291,7 @@ export async function getTransferEvents(
 }
 
 /**
- * Fetch Uniswap V2 Swap events for a pair
+ * Fetch Uniswap V2 Swap events for a pair (chunked for RPC block range limit)
  */
 export async function getSwapEvents(
   pairAddress: Address,
@@ -263,7 +302,7 @@ export async function getSwapEvents(
   const client = getClient(chainId);
   
   try {
-    const logs = await client.getLogs({
+    const logs = await getLogsChunked(client, {
       address: pairAddress,
       event: parseAbi(['event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)'])[0],
       fromBlock,
@@ -297,7 +336,8 @@ export async function getTokenFactoryBuys(
     
     // Get Transfer events FROM the TokenFactory TO users (these are buy fulfillments)
     // When someone buys and withdraws, tokens transfer from factory to user
-    const logs = await client.getLogs({
+    // Chunk requests to respect RPC eth_getLogs 10k block limit
+    const logs = await getLogsChunked(client, {
       address: tokenAddress,
       event: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)'])[0],
       args: {
@@ -357,8 +397,8 @@ export async function getTokenFactoryBuys(
     
     // Also check for direct buy transactions to factory
     // (buys where tokens are held in balances, not yet withdrawn)
-    // We can detect these by looking at transactions to the factory
-    const factoryTxLogs = await client.getLogs({
+    // We can detect these by looking at transactions to the factory (chunked for RPC limit)
+    const factoryTxLogs = await getLogsChunked(client, {
       address: TOKEN_FACTORY_ADDRESS,
       fromBlock,
       toBlock: 'latest',

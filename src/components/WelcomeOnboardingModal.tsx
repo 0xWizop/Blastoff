@@ -13,15 +13,15 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: 'Welcome to BLASTOFF',
-    body: 'BLASTOFF is a fair launchpad on Base. Create a token, seed liquidity, and share the launch in minutes.',
+    body: 'BLASTOFF is a fair launchpad on Base. No presales—tokens launch with liquidity straight to Uniswap or Aerodrome. Create, launch, and share in minutes.',
   },
   {
     title: 'Create a token',
-    body: 'Click “Create” in the header, fill in name/symbol/supply, and confirm. You’ll get a draft token to launch.',
+    body: 'Click “Create” in the header, fill in name/symbol/supply, and confirm. You’ll get a draft token ready to launch on the DEX.',
   },
   {
     title: 'Launch + liquidity',
-    body: 'Pick a DEX, set your initial price and WETH liquidity, choose slippage, then launch. After launch, trading begins.',
+    body: 'Pick Uniswap or Aerodrome, set your initial price and WETH liquidity, then launch. Trading starts immediately on the DEX.',
   },
   {
     title: 'Discover + trade',

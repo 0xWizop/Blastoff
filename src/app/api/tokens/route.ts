@@ -23,7 +23,7 @@ function mapTokenData(docId: string, data: FirebaseFirestore.DocumentData) {
     symbol: data.symbol || '???',
     logoUrl: data.image || '',
     description: data.description || '',
-    creatorAddress: data.account || null,
+    creatorAddress: data.creatorAddress || data.account || null,
     totalSupply: data.totalSupply || 0,
     volume24h: data.volume || 0,
     // Default values for missing fields

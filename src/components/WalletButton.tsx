@@ -353,19 +353,19 @@ export function WalletButton() {
         Connect Wallet
       </button>
 
-      {/* Wallet Connect Modal */}
+      {/* Wallet Connect Modal - below header, aligned right (near Swap panel Connect button) */}
       {openModals.walletConnect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100] flex items-start justify-end pt-14 sm:pt-16 p-4 pr-6 sm:pr-8 md:pr-12">
+          {/* Backdrop - below header only, soft top edge to avoid visible strip */}
           <div 
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute top-14 left-0 right-0 bottom-0 sm:top-16 bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.4)_6px,rgba(0,0,0,0.7)_100%)]"
             onClick={() => {
               closeModal('walletConnect');
               setConnectingWallet(null);
             }}
           />
           
-          {/* Modal */}
+          {/* Modal - starts below header separator */}
           <div className="relative w-full max-w-sm border border-blastoff-border bg-blastoff-surface shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-blastoff-border p-4">

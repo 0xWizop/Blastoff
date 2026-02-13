@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAccount, useChainId, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 
 export type SwapStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error';
@@ -59,6 +59,7 @@ export function useSwap() {
   const [status, setStatus] = useState<SwapStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SwapResult | null>(null);
+  const lastParamsRef = useRef<SwapParams | null>(null);
   const { data: hash, sendTransactionAsync } = useSendTransaction();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -70,6 +71,26 @@ export function useSwap() {
       setStatus('success');
     }
   }, [isConfirming, isSuccess, status]);
+
+  // When tx is confirmed, record trade for PnL (TradeHistory + UserPositions)
+  useEffect(() => {
+    if (!isSuccess || !result || !walletAddress || !lastParamsRef.current) return;
+    const params = lastParamsRef.current;
+    lastParamsRef.current = null;
+    fetch('/api/trades/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        txHash: result.txHash,
+        tokenAddress: params.tokenAddress,
+        wallet: walletAddress,
+        isBuy: params.isBuy,
+        inputAmount: params.inputAmount,
+        outputAmount: params.outputAmount,
+        chainId,
+      }),
+    }).catch(() => { /* fire-and-forget */ });
+  }, [isSuccess, result, walletAddress, chainId]);
 
   const executeSwap = useCallback(async (params: SwapParams): Promise<SwapResult | null> => {
     if (!isConnected || !walletAddress) {
@@ -108,6 +129,7 @@ export function useSwap() {
         value: BigInt(transaction.value || '0'),
       });
 
+      lastParamsRef.current = params;
       setResult({
         txHash,
         inputAmount: params.inputAmount,

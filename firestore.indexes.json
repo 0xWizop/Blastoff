@@ -1,0 +1,57 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "TokenData",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "volume", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TokenData",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorAddress", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TokenData",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "contractID", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "chat",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TradeHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "walletAddress", "order": "ASCENDING" },
+        { "fieldPath": "tokenAddress", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TradeHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tokenAddress", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "UserPositions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "walletAddress", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

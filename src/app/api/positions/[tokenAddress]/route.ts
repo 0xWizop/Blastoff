@@ -61,14 +61,37 @@ export async function GET(
 
     const currentValue = formattedBalance * price;
 
+    let averageEntry = 0;
+    let pnlUsd = 0;
+    let pnlPercent = 0;
+
+    try {
+      const positionId = `${wallet.toLowerCase()}_${tokenAddress.toLowerCase()}`;
+      const posDoc = await db.collection('UserPositions').doc(positionId).get();
+      const posData = posDoc.data();
+      const totalCostBasisUsd = Number(posData?.totalCostBasisUsd ?? 0);
+      const totalTokenAmount = Number(posData?.totalTokenAmount ?? 0);
+
+      if (totalTokenAmount > 0 && formattedBalance > 0) {
+        averageEntry = totalCostBasisUsd / totalTokenAmount;
+        const costBasisForCurrentBalance = totalCostBasisUsd * (formattedBalance / totalTokenAmount);
+        pnlUsd = currentValue - costBasisForCurrentBalance;
+        pnlPercent = costBasisForCurrentBalance > 0
+          ? (pnlUsd / costBasisForCurrentBalance) * 100
+          : 0;
+      }
+    } catch {
+      // keep 0 PnL if no position or read error
+    }
+
     return NextResponse.json({
       position: {
         tokenAddress,
         balance: formattedBalance,
-        averageEntry: 0,
+        averageEntry,
         currentValue,
-        pnlUsd: 0,
-        pnlPercent: 0,
+        pnlUsd,
+        pnlPercent,
       },
     });
   } catch (err) {

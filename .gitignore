@@ -17,6 +17,7 @@
 # misc
 .DS_Store
 *.pem
+BlastOff/
 
 # debug
 npm-debug.log*

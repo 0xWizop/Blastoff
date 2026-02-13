@@ -19,6 +19,16 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    // Fix for MetaMask SDK - it tries to import React Native modules in browser
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        '@react-native-async-storage/async-storage': false,
+      };
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

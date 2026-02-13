@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // TokenData: token metadata (name, symbol, price, creator, etc.)
+    // Read: anyone (needed for API and potential client use).
+    // Write: only backend (Admin SDK); client cannot create/update/delete tokens.
+    // -------------------------------------------------------------------------
+    match /TokenData/{tokenAddress} {
+      allow read: if true;
+      allow write: if false;
+
+      // -----------------------------------------------------------------------
+      // TokenData/{tokenAddress}/chat: per-token chat messages
+      // Read: anyone. Create: valid message only (walletAddress, message, timestamp, length).
+      // Update/delete: disallowed from client.
+      // -----------------------------------------------------------------------
+      match /chat/{messageId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['walletAddress', 'message', 'timestamp'])
+          && request.resource.data.walletAddress is string
+          && request.resource.data.message is string
+          && request.resource.data.message.size() <= 500;
+        allow update, delete: if false;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // TradeHistory: one doc per swap (for PnL / average entry).
+    // Backend only (Admin SDK). Record when user swaps via app.
+    // -------------------------------------------------------------------------
+    match /TradeHistory/{tradeId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // UserPositions: cached position per wallet+token (balance, averageEntry, PnL).
+    // Backend only (Admin SDK). Updated when trades recorded or reconciled.
+    // -------------------------------------------------------------------------
+    match /UserPositions/{positionId} {
+      allow read, write: if false;
+    }
+  }
+}

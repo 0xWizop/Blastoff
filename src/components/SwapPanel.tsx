@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Token } from '@/types';
 import { useSwapQuote } from '@/hooks/useTokens';
@@ -17,7 +18,8 @@ interface SwapPanelProps {
 const slippageOptions = [0.5, 1, 2, 5];
 
 export function SwapPanel({ token }: SwapPanelProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const queryClient = useQueryClient();
   const { openModal, openModals, closeModal } = useAppStore();
   const [isBuy, setIsBuy] = useState(true);
   const [amount, setAmount] = useState('');
@@ -30,6 +32,14 @@ export function SwapPanel({ token }: SwapPanelProps) {
 
   // Swap execution hook
   const { executeSwap, status: txStatus, isPending, isSuccess, reset: resetSwap } = useSwap();
+
+  // Invalidate position and balances when swap confirms so Position panel and balances update
+  useEffect(() => {
+    if (isSuccess && address) {
+      queryClient.invalidateQueries({ queryKey: ['userPosition', token.address, address] });
+      queryClient.invalidateQueries({ queryKey: ['balances'] });
+    }
+  }, [isSuccess, address, token.address, queryClient]);
 
   const { data: quote } = useSwapQuote({
     tokenAddress: token.address,

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trade } from '@/types';
 import { Spinner } from './Spinner';
+import { useTradeStream } from '@/hooks/useTradeStream';
 
 interface TradesFeedProps {
   tokenAddress: string;
@@ -118,7 +119,36 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
   const [newTradeIds, setNewTradeIds] = useState<Set<string>>(new Set());
   const feedRef = useRef<HTMLDivElement>(null);
 
-  // Fetch trades from API
+  // Handle incoming live trades
+  const handleNewTrade = useCallback((trade: Trade) => {
+    setTrades(prev => {
+      // Check if trade already exists
+      if (prev.some(t => t.id === trade.id)) return prev;
+      // Add new trade at the beginning, limit to 50
+      return [trade, ...prev].slice(0, 50);
+    });
+    
+    // Mark as new for animation
+    setNewTradeIds(prev => new Set([...prev, trade.id]));
+    
+    // Remove "new" status after animation
+    setTimeout(() => {
+      setNewTradeIds(prev => {
+        const next = new Set(prev);
+        next.delete(trade.id);
+        return next;
+      });
+    }, 3000);
+  }, []);
+
+  // Connect to live trade stream
+  const { isConnected, isConnecting, error: streamError, reconnect } = useTradeStream({
+    tokenAddress,
+    enabled: isLive,
+    onTrade: handleNewTrade,
+  });
+
+  // Fetch initial trades from API
   useEffect(() => {
     const loadTrades = async () => {
       setIsLoading(true);
@@ -132,8 +162,8 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
         const data = await response.json();
         setTrades(data.trades || []);
       } catch (err) {
-        // API not implemented yet - show empty state
-        setError('Trades feed requires backend integration');
+        // API returned error - show empty state but continue with live stream
+        setError(null);
         setTrades([]);
       } finally {
         setIsLoading(false);
@@ -142,17 +172,6 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
 
     loadTrades();
   }, [tokenAddress]);
-
-  // TODO: Implement WebSocket connection for live trade updates
-  // useEffect(() => {
-  //   if (!isLive) return;
-  //   const ws = new WebSocket(`wss://api.example.com/trades/${tokenAddress}`);
-  //   ws.onmessage = (event) => {
-  //     const trade = JSON.parse(event.data);
-  //     setTrades(prev => [trade, ...prev].slice(0, 50));
-  //   };
-  //   return () => ws.close();
-  // }, [isLive, tokenAddress]);
 
   const buyCount = trades.filter((t) => t.type === 'buy').length;
   const sellCount = trades.filter((t) => t.type === 'sell').length;
@@ -190,14 +209,30 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
           <button
             onClick={() => setIsLive(!isLive)}
             className={`flex items-center gap-1.5 px-2 py-1 text-xs transition-all ${
-              isLive 
+              isLive && isConnected
                 ? 'bg-green-500/20 text-green-500' 
+                : isLive && isConnecting
+                ? 'bg-yellow-500/20 text-yellow-500'
                 : 'bg-blastoff-bg text-blastoff-text-muted hover:text-blastoff-text'
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-blastoff-text-muted'}`} />
-            {isLive ? 'Live' : 'Paused'}
+            <span className={`h-1.5 w-1.5 rounded-full ${
+              isLive && isConnected 
+                ? 'bg-green-500 animate-pulse' 
+                : isLive && isConnecting
+                ? 'bg-yellow-500 animate-pulse'
+                : 'bg-blastoff-text-muted'
+            }`} />
+            {isLive && isConnected ? 'Live' : isLive && isConnecting ? 'Connecting...' : 'Paused'}
           </button>
+          {streamError && isLive && (
+            <button
+              onClick={reconnect}
+              className="px-2 py-1 text-xs text-blastoff-orange hover:text-blastoff-orange-light"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
 
@@ -217,7 +252,12 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <p className="text-sm text-blastoff-text-secondary">No trades yet</p>
-            <p className="mt-1 text-xs text-blastoff-text-muted">Be the first to trade this token</p>
+            <p className="mt-1 text-xs text-blastoff-text-muted">
+              {isLive && isConnected 
+                ? 'Waiting for live trades...' 
+                : 'Be the first to trade this token'
+              }
+            </p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -237,8 +277,10 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
       <div className="border-t border-blastoff-border px-3 py-2 text-center">
         <p className="text-[10px] text-blastoff-text-muted">
           {trades.length > 0 
-            ? `Showing last ${trades.length} trades • Updates in real-time`
-            : 'Waiting for trades...'
+            ? `Showing last ${trades.length} trades • ${isLive && isConnected ? 'Live updates enabled' : 'Updates paused'}`
+            : isLive && isConnected 
+              ? 'Streaming live trades...'
+              : 'Waiting for trades...'
           }
         </p>
       </div>

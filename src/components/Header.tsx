@@ -30,7 +30,7 @@ export function Header() {
   }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-blastoff-border bg-blastoff-bg/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 w-full bg-blastoff-bg/95 backdrop-blur-sm">
       <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:h-16">
         <Link href="/app" className="flex items-center gap-2">
           <span className="font-logo text-xl tracking-[0.08em] text-blastoff-orange sm:text-2xl">
@@ -101,7 +101,7 @@ export function Header() {
 
       {/* Mobile Menu Panel */}
       <div
-        className={`fixed left-0 right-0 top-14 z-50 border-b border-blastoff-border bg-blastoff-bg transition-all duration-200 sm:hidden ${
+        className={`fixed left-0 right-0 top-14 z-50 bg-blastoff-bg transition-all duration-200 sm:hidden ${
           mobileMenuOpen 
             ? 'translate-y-0 opacity-100' 
             : 'pointer-events-none -translate-y-2 opacity-0'

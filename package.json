@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/seed-firestore.ts"
+    "seed": "tsx scripts/seed-firestore.ts",
+    "firestore:deploy": "firebase deploy --only firestore"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.19",

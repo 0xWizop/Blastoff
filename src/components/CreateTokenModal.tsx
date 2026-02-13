@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { useAccount, useChainId, useSendTransaction } from 'wagmi';
+import { useAccount, useChainId, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/useAppStore';
 import { ButtonSpinner } from './Spinner';
@@ -179,33 +179,68 @@ export function CreateTokenModal() {
         value: BigInt(transaction.value || '0'),
       });
 
-      const confirmRes = await fetch('/api/tokens/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          symbol: symbol.trim().toUpperCase(),
-          totalSupply: supply,
-          decimals: Number(decimals),
-          description: '',
-          website: website.trim(),
-          twitter: twitter.trim(),
-          telegram: telegram.trim(),
-          discord: discord.trim(),
-          logoUrl: '',
-          creatorAddress: walletAddress ?? undefined,
-          txHash,
-          chainId,
-        }),
+      // Wait for transaction to be mined before trying to read the receipt
+      toast.loading('Waiting for confirmation...', {
+        id: createToast,
+        description: 'Transaction submitted, waiting for block confirmation',
       });
 
-      if (!confirmRes.ok) {
-        const body = await confirmRes.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed to finalize token');
+      // Poll for transaction receipt
+      let receipt = null;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max wait
+      
+      while (!receipt && attempts < maxAttempts) {
+        try {
+          const receiptRes = await fetch(`/api/tokens/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name.trim(),
+              symbol: symbol.trim().toUpperCase(),
+              totalSupply: supply,
+              decimals: Number(decimals),
+              description: '',
+              website: website.trim(),
+              twitter: twitter.trim(),
+              telegram: telegram.trim(),
+              discord: discord.trim(),
+              logoUrl: '',
+              creatorAddress: walletAddress ?? undefined,
+              txHash,
+              chainId,
+            }),
+          });
+          
+          if (receiptRes.ok) {
+            receipt = await receiptRes.json();
+            break;
+          }
+          
+          const errorBody = await receiptRes.json().catch(() => ({}));
+          // If the error is about transaction not found, keep waiting
+          if (errorBody.error?.includes('could not be found') || 
+              errorBody.error?.includes('not found') ||
+              errorBody.error?.includes('pending')) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+            continue;
+          }
+          
+          // Other error - throw
+          throw new Error(errorBody.error || 'Failed to finalize token');
+        } catch (e) {
+          if (attempts >= maxAttempts - 1) throw e;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
       }
 
-      const confirmBody = await confirmRes.json().catch(() => ({}));
-      const createdAddress = confirmBody.tokenAddress || '';
+      if (!receipt) {
+        throw new Error('Transaction confirmation timed out. Please check the transaction on the block explorer.');
+      }
+
+      const createdAddress = receipt.tokenAddress || '';
       if (!createdAddress) {
         throw new Error('Token address not returned from backend');
       }

@@ -26,7 +26,7 @@ function CoinFeedContent() {
   
   const [filters, setFilters] = useState<FilterState>({
     status: 'ALL',
-    sort: safeSort || 'marketCap',
+    sort: safeSort || 'newest',
     search: searchParams.get('search') || '',
   });
 
@@ -112,7 +112,7 @@ function CoinFeedContent() {
             Fair Launches
           </h1>
           <p className="text-sm text-blastoff-text-secondary sm:text-base">
-            Discover the latest fair launches on Base
+            Discover the latest fair launches on Base—Uniswap & Aerodrome. No presales.
           </p>
         </div>
 
