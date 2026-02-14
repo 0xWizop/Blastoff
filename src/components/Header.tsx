@@ -41,21 +41,11 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-3 sm:flex">
           <Link
-            href="/app"
-            className={`px-3 py-2 text-sm font-medium transition-colors ${
-              pathname === '/app' 
-                ? 'text-blastoff-orange' 
-                : 'text-blastoff-text-secondary hover:text-blastoff-text'
-            }`}
-          >
-            Explore
-          </Link>
-          <button
-            onClick={() => openModal('createToken')}
-            className="border border-blastoff-border bg-blastoff-surface px-4 py-2 text-sm font-medium text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-text h-[38px]"
+            href="/create"
+            className="border border-blastoff-border bg-blastoff-surface px-4 py-2 text-sm font-medium text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-text h-[38px] inline-flex items-center"
           >
             Create Token
-          </button>
+          </Link>
           <NetworkBadge />
           <WalletButton />
         </nav>
@@ -124,18 +114,16 @@ export function Header() {
               <span className="text-sm font-medium">Explore Tokens</span>
             </Link>
 
-            <button
-              onClick={() => {
-                openModal('createToken');
-                setMobileMenuOpen(false);
-              }}
+            <Link
+              href="/create"
+              onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-3 text-left text-blastoff-text-secondary transition-colors active:bg-blastoff-border"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               <span className="text-sm font-medium">Create Token</span>
-            </button>
+            </Link>
 
             {/* Divider */}
             <div className="my-2 border-t border-blastoff-border" />

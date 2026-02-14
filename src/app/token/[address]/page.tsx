@@ -3,8 +3,9 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChainId } from 'wagmi';
+import { useAppStore } from '@/store/useAppStore';
 import { toast } from 'sonner';
 import { useToken, useTokenChart } from '@/hooks/useTokens';
 import { SwapPanel } from '@/components/SwapPanel';
@@ -47,6 +48,15 @@ export default function TokenPage() {
   const params = useParams();
   const address = params.address as string;
   const chainId = useChainId();
+  const { createdToken, closeModal } = useAppStore();
+
+  // Dismiss Token Created popup when we're on this token's page (e.g. after clicking View Token or landing from create)
+  useEffect(() => {
+    if (createdToken?.address && address && createdToken.address.toLowerCase() === address.toLowerCase()) {
+      closeModal('tokenCreated');
+    }
+  }, [address, createdToken?.address, closeModal]);
+
   const { data: token, isLoading, error } = useToken(address, { refetchInterval: 20000, chainId });
   const { data: chartCandles } = useTokenChart(address, '1m', chainId);
   const chartPrice = chartCandles?.length ? chartCandles[chartCandles.length - 1].close : null;
