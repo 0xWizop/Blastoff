@@ -31,9 +31,9 @@ export function TokenCreatedModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative mx-auto mt-24 w-[min(480px,calc(100vw-2rem))] border border-blastoff-border bg-blastoff-surface p-5">
+      <div className="relative w-[min(480px,100%)] border border-blastoff-border bg-blastoff-surface p-5">
         {/* Success Icon */}
         <div className="mb-4 flex justify-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
