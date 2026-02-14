@@ -12,6 +12,7 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: 'newest', label: 'Newest' },
   { value: 'marketCap', label: 'Market Cap' },
   { value: 'volume24h', label: '24h Volume' },
+  { value: 'priceChange24h', label: '24h Change' },
 ];
 
 export function FilterBar({ filters, onFilterChange }: FilterBarProps) {

@@ -234,6 +234,53 @@ export async function getTokenICOStats(
   }
 }
 
+/** Live stats for list/trending: price, marketCap, volume24h, priceChange24h */
+export interface TokenLiveStats {
+  price: number;
+  marketCap: number;
+  volume24h: number;
+  priceChange24h: number;
+}
+
+const DEFAULT_SUPPLY = 1e9;
+
+/**
+ * Get live on-chain stats for a token (for homepage list, trending, top movers).
+ * @param tradesLimit - lower = faster (e.g. 60 for list, 200 for single token)
+ */
+export async function getTokenLiveStats(
+  tokenAddress: Address,
+  chainId?: number,
+  totalSupply: number = DEFAULT_SUPPLY,
+  tradesLimit: number = 200
+): Promise<TokenLiveStats> {
+  try {
+    const [icoStats, trades] = await Promise.all([
+      getTokenICOStats(tokenAddress, chainId),
+      getTokenTrades(tokenAddress, chainId, tradesLimit),
+    ]);
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const trades24h = trades.filter((t) => t.timestamp > oneDayAgo);
+    const volume24h = trades24h.reduce((sum, t) => sum + t.totalValue, 0);
+    const price = icoStats.currentPrice;
+    const marketCap = price * (totalSupply || DEFAULT_SUPPLY);
+    let priceChange24h = 0;
+    if (trades24h.length >= 2) {
+      const sorted = [...trades24h].sort((a, b) => a.timestamp - b.timestamp);
+      const openPrice = sorted[0].price;
+      const closePrice = sorted[sorted.length - 1].price;
+      if (openPrice > 0) priceChange24h = ((closePrice - openPrice) / openPrice) * 100;
+    } else if (trades24h.length === 1 && icoStats.currentPrice > 0) {
+      const openPrice = trades24h[0].price;
+      if (openPrice > 0) priceChange24h = ((icoStats.currentPrice - openPrice) / openPrice) * 100;
+    }
+    return { price, marketCap, volume24h, priceChange24h };
+  } catch (e) {
+    return { price: 0, marketCap: 0, volume24h: 0, priceChange24h: 0 };
+  }
+}
+
 /**
  * Get the Uniswap V2 pair address for a token
  */

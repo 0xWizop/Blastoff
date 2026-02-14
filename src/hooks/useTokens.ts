@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useChainId } from 'wagmi';
 import { Token, ChartCandle, UserPosition, FilterState, SwapQuote } from '@/types';
 
@@ -14,94 +15,98 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function useTokens(filters?: FilterState) {
-  return useQuery({
-    queryKey: ['tokens', filters],
-    queryFn: async (): Promise<Token[]> => {
-      const { tokens: rawTokens } = await fetchJson<{ tokens: Token[] }>('/api/tokens');
-
-      const now = Date.now();
-      let tokens = (rawTokens || []).filter((t) => t.startTime <= now);
-      
-      if (filters) {
-        if (filters.search) {
-          const search = filters.search.toLowerCase().trim();
-          tokens = tokens.filter(
-            (t) =>
-              t.name.toLowerCase().includes(search) ||
-              t.symbol.toLowerCase().includes(search) ||
-              (t.address && t.address.toLowerCase().includes(search))
-          );
-        }
-
-        switch (filters.sort) {
-          case 'marketCap':
-            tokens.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
-            break;
-          case 'volume24h':
-            tokens.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
-            break;
-          case 'newest':
-            tokens.sort((a, b) => b.startTime - a.startTime);
-            break;
-        }
-      }
-
-      return tokens;
-    },
-    staleTime: 30000,
-  });
+function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
+  const now = Date.now();
+  let list = (tokens || []).filter((t) => t.startTime <= now);
+  if (!filters) return list;
+  if (filters.search) {
+    const search = filters.search.toLowerCase().trim();
+    list = list.filter(
+      (t) =>
+        t.name.toLowerCase().includes(search) ||
+        t.symbol.toLowerCase().includes(search) ||
+        (t.address && t.address.toLowerCase().includes(search))
+    );
+  }
+  switch (filters.sort) {
+    case 'marketCap':
+      list.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+      break;
+    case 'volume24h':
+      list.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+      break;
+    case 'priceChange24h':
+      list.sort((a, b) => (b.priceChange24h ?? -Infinity) - (a.priceChange24h ?? -Infinity));
+      break;
+    case 'newest':
+      list.sort((a, b) => b.startTime - a.startTime);
+      break;
+  }
+  return list;
 }
 
-// Paginated version with page numbers
-export function useTokensPaginated(filters?: FilterState, page: number = 1) {
-  return useQuery({
-    queryKey: ['tokensPaginated', filters, page],
-    queryFn: async (): Promise<{ tokens: Token[]; total: number; totalPages: number; currentPage: number }> => {
-      const { tokens: rawTokens } = await fetchJson<{ tokens: Token[] }>('/api/tokens');
+/** Single source of token list: fast Firebase response first, then live on-chain data. One network request shared by feed + Top Movers. */
+export function useTokensList() {
+  const queryClient = useQueryClient();
+  const chainId = useChainId();
 
+  const fastQuery = useQuery({
+    queryKey: ['tokensListFast', chainId],
+    queryFn: async (): Promise<Token[]> => {
+      const params = new URLSearchParams();
+      if (chainId != null) params.set('chainId', String(chainId));
+      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
       const now = Date.now();
-      let tokens = (rawTokens || []).filter((t) => t.startTime <= now);
-      
-      if (filters) {
-        if (filters.search) {
-          const search = filters.search.toLowerCase().trim();
-          tokens = tokens.filter(
-            (t) =>
-              t.name.toLowerCase().includes(search) ||
-              t.symbol.toLowerCase().includes(search) ||
-              (t.address && t.address.toLowerCase().includes(search))
-          );
-        }
-
-        switch (filters.sort) {
-          case 'marketCap':
-            tokens.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
-            break;
-          case 'volume24h':
-            tokens.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
-            break;
-          case 'newest':
-            tokens.sort((a, b) => b.startTime - a.startTime);
-            break;
-        }
-      }
-
-      const total = tokens.length;
-      const totalPages = Math.ceil(total / TOKENS_PER_PAGE);
-      const start = (page - 1) * TOKENS_PER_PAGE;
-      const end = start + TOKENS_PER_PAGE;
-      const paginatedTokens = tokens.slice(start, end);
-      
-      return {
-        tokens: paginatedTokens,
-        total,
-        totalPages,
-        currentPage: page,
-      };
+      return (tokens || []).filter((t) => t.startTime <= now);
     },
-    staleTime: 30000,
+    staleTime: 60_000,
   });
+
+  const liveQuery = useQuery({
+    queryKey: ['tokensList', chainId],
+    queryFn: async (): Promise<Token[]> => {
+      const params = new URLSearchParams({ live: 'true' });
+      if (chainId != null) params.set('chainId', String(chainId));
+      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
+      const now = Date.now();
+      return (tokens || []).filter((t) => t.startTime <= now);
+    },
+    placeholderData: () => queryClient.getQueryData<Token[]>(['tokensListFast', chainId]),
+    staleTime: 30_000,
+  });
+
+  return liveQuery;
+}
+
+/** Filtered/sorted list (e.g. for Top Movers). Derives from shared list. */
+export function useTokens(filters?: FilterState) {
+  const listQuery = useTokensList();
+  const data = useMemo(
+    () => applyFiltersAndSort(listQuery.data ?? [], filters),
+    [listQuery.data, filters]
+  );
+  return {
+    ...listQuery,
+    data: listQuery.data !== undefined ? data : undefined,
+  };
+}
+
+/** Paginated feed: derives from shared list. One fetch; cards show fast (Firebase) then update (live). */
+export function useTokensPaginated(filters?: FilterState, page: number = 1) {
+  const listQuery = useTokensList();
+  const result = useMemo(() => {
+    const sorted = applyFiltersAndSort(listQuery.data ?? [], filters);
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / TOKENS_PER_PAGE));
+    const start = (page - 1) * TOKENS_PER_PAGE;
+    const tokens = sorted.slice(start, start + TOKENS_PER_PAGE);
+    return { tokens, total, totalPages, currentPage: page };
+  }, [listQuery.data, filters, page]);
+
+  return {
+    ...listQuery,
+    data: listQuery.data !== undefined ? result : undefined,
+  };
 }
 
 export function useToken(address: string, options?: { refetchInterval?: number; chainId?: number }) {
@@ -139,10 +144,13 @@ export function useTokenChart(address: string, timeframe: string = '1m', chainId
 }
 
 export function useTrendingTokens() {
+  const chainId = useChainId();
   return useQuery({
-    queryKey: ['trendingTokens'],
+    queryKey: ['trendingTokens', chainId],
     queryFn: async (): Promise<Token[]> => {
-      const { tokens } = await fetchJson<{ tokens: Token[] }>('/api/tokens/trending');
+      const params = new URLSearchParams();
+      if (chainId != null) params.set('chainId', String(chainId));
+      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens/trending?${params}`);
       const now = Date.now();
       return (tokens || []).filter((t) => t.startTime <= now);
     },
