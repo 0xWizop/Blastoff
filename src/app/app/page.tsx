@@ -10,7 +10,6 @@ import { FilterBar } from '@/components/FilterBar';
 import { CoinCard } from '@/components/CoinCard';
 import { TrendingTokens } from '@/components/TrendingTokens';
 import { TopMoversTicker } from '@/components/TopMoversTicker';
-import { PlatformStats } from '@/components/PlatformStats';
 import { CoinCardSkeleton, Skeleton } from '@/components/Skeleton';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -20,7 +19,7 @@ function CoinFeedContent() {
   const queryClient = useQueryClient();
   const sortParam = searchParams.get('sort');
   const safeSort =
-    sortParam === 'marketCap' || sortParam === 'volume24h' || sortParam === 'newest'
+    sortParam === 'marketCap' || sortParam === 'volume24h' || sortParam === 'priceChange24h' || sortParam === 'newest'
       ? (sortParam as SortOption)
       : undefined;
   
@@ -41,7 +40,8 @@ function CoinFeedContent() {
   } = useTokensPaginated(filters, currentPage);
 
   const handleRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['tokensPaginated'] });
+    await queryClient.invalidateQueries({ queryKey: ['tokensList'] });
+    await queryClient.invalidateQueries({ queryKey: ['tokensListFast'] });
     await queryClient.invalidateQueries({ queryKey: ['trendingTokens'] });
     toast.success('Feed refreshed!');
   }, [queryClient]);
@@ -116,8 +116,6 @@ function CoinFeedContent() {
           </p>
         </div>
 
-        <PlatformStats />
-
         {/* Trending - Shows horizontally on mobile, sidebar on desktop */}
         <div className="mb-6 lg:hidden">
           <Suspense fallback={<Skeleton className="h-32" />}>
@@ -145,7 +143,7 @@ function CoinFeedContent() {
                   {error instanceof Error ? error.message : 'Please try again'}
                 </p>
                 <button
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['tokensPaginated'] })}
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['tokensList'] })}
                   className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary hover:text-blastoff-text"
                 >
                   Retry

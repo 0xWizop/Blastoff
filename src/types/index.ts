@@ -66,7 +66,7 @@ export interface SwapQuote {
   fee: number;
 }
 
-export type SortOption = 'marketCap' | 'volume24h' | 'newest';
+export type SortOption = 'marketCap' | 'volume24h' | 'priceChange24h' | 'newest';
 
 export interface FilterState {
   status: TokenStatus | 'ALL';
