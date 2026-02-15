@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense, useCallback } from 'react';
+import { useState, Suspense, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -14,22 +14,36 @@ import { CoinCardSkeleton, Skeleton } from '@/components/Skeleton';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
+function parseSort(sortParam: string | null): SortOption {
+  return sortParam === 'marketCap' || sortParam === 'volume24h' || sortParam === 'priceChange24h' || sortParam === 'newest'
+    ? (sortParam as SortOption)
+    : 'newest';
+}
+
 function CoinFeedContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const sortParam = searchParams.get('sort');
-  const safeSort =
-    sortParam === 'marketCap' || sortParam === 'volume24h' || sortParam === 'priceChange24h' || sortParam === 'newest'
-      ? (sortParam as SortOption)
-      : undefined;
-  
+  const sortFromUrl = parseSort(searchParams.get('sort'));
+  const searchFromUrl = searchParams.get('search') ?? '';
+
   const [filters, setFilters] = useState<FilterState>({
     status: 'ALL',
-    sort: safeSort || 'newest',
-    search: searchParams.get('search') || '',
+    sort: sortFromUrl,
+    search: searchFromUrl,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Keep filters in sync with URL (back/forward, direct link with ?search= or ?sort=)
+  useEffect(() => {
+    const sort = parseSort(searchParams.get('sort'));
+    const search = searchParams.get('search') ?? '';
+    setFilters((prev) => {
+      if (prev.sort === sort && prev.search === search) return prev;
+      return { ...prev, sort, search };
+    });
+    setCurrentPage(1);
+  }, [searchParams]);
 
   const {
     data,

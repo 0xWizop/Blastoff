@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { FilterState, SortOption } from '@/types';
 
@@ -15,29 +16,52 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: 'priceChange24h', label: '24h Change' },
 ];
 
+const SEARCH_URL_DEBOUNCE_MS = 400;
+
 export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchUrlTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pushUrl = useCallback(
+    (updated: FilterState) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (updated.sort !== 'newest') {
+        params.set('sort', updated.sort);
+      } else {
+        params.delete('sort');
+      }
+      if (updated.search.trim()) {
+        params.set('search', updated.search.trim());
+      } else {
+        params.delete('search');
+      }
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (searchUrlTimeoutRef.current) clearTimeout(searchUrlTimeoutRef.current);
+    };
+  }, []);
 
   const updateFilters = (newFilters: Partial<FilterState>) => {
     const updated = { ...filters, ...newFilters };
     onFilterChange(updated);
 
-    const params = new URLSearchParams(searchParams.toString());
-    if (updated.sort !== 'newest') {
-      params.set('sort', updated.sort);
+    const searchChanged = newFilters.search !== undefined;
+    if (searchChanged) {
+      if (searchUrlTimeoutRef.current) clearTimeout(searchUrlTimeoutRef.current);
+      searchUrlTimeoutRef.current = setTimeout(() => {
+        searchUrlTimeoutRef.current = null;
+        pushUrl(updated);
+      }, SEARCH_URL_DEBOUNCE_MS);
     } else {
-      params.delete('sort');
+      pushUrl(updated);
     }
-
-    if (updated.search) {
-      params.set('search', updated.search);
-    } else {
-      params.delete('search');
-    }
-
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const hasActiveFilters = filters.search.trim() !== '' || filters.sort !== 'newest';
