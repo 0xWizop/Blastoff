@@ -77,11 +77,11 @@ export async function POST(req: Request) {
       address: contracts.UNISWAP_V3_QUOTER,
       abi: uniswapV3QuoterAbi,
       functionName: 'quoteExactInputSingle',
-      args: [tokenIn, tokenOut, poolFee, amountIn, 0n],
+      args: [tokenIn, tokenOut, poolFee, amountIn, BigInt(0)],
     });
 
     const slippageBps = Math.round((slippage ?? 1) * 100);
-    const amountOutMin = (quotedOut * BigInt(10000 - slippageBps)) / 10000n;
+    const amountOutMin = (quotedOut * BigInt(10000 - slippageBps)) / BigInt(10000);
 
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
     const data = encodeFunctionData({
@@ -93,10 +93,10 @@ export async function POST(req: Request) {
           tokenOut,
           fee: poolFee,
           recipient: wallet,
-          deadline,
+          deadline: BigInt(deadline),
           amountIn,
           amountOutMinimum: amountOutMin,
-          sqrtPriceLimitX96: 0n,
+          sqrtPriceLimitX96: BigInt(0),
         },
       ],
     });

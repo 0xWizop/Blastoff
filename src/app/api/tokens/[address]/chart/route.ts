@@ -21,30 +21,21 @@ export async function GET(
     const timeframe = url.searchParams.get('timeframe') || '1h';
     const chainIdParam = url.searchParams.get('chainId');
     const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
-    
-    console.log(`[Chart API] Fetching data for token: ${tokenAddress}, chainId: ${chainId}`);
-    
+
     // Fetch enough trades for all timeframes (1m needs more for density)
     const trades = await getTokenTrades(tokenAddress, chainId, 500);
-    
-    console.log(`[Chart API] Found ${trades.length} trades`);
-    
+
     // Get ICO stats for current price
     const icoStats = await getTokenICOStats(tokenAddress, chainId);
     const currentPrice = icoStats.currentPrice;
-    
-    console.log(`[Chart API] ICO State: ${icoStats.state}, Price: ${currentPrice}, Collateral: ${icoStats.collateralRaised} ETH`);
-    
+
     // If no trades, return empty candles array or single price point
     if (trades.length === 0) {
       const now = Math.floor(Date.now() / 1000);
-      
+
       // If there's collateral raised, we have buys but couldn't detect individual trades
       // Show a single candle at current price to indicate there IS activity
       if (icoStats.collateralRaised > 0) {
-        console.log(`[Chart API] Has collateral (${icoStats.collateralRaised} ETH) but no detected trades`);
-        
-        // Just show one candle representing all activity
         const startPrice = 0.00003; // Initial bonding curve price
         
         return NextResponse.json({ 
@@ -65,10 +56,7 @@ export async function GET(
           }
         });
       }
-      
-      // No collateral = no activity at all, return empty array
-      console.log(`[Chart API] No trades and no collateral - returning empty candles`);
-      
+
       return NextResponse.json({ 
         candles: [],
         debug: {
@@ -83,9 +71,7 @@ export async function GET(
     
     // Aggregate real trades into candles
     const candles = aggregateToCandles(trades, timeframe);
-    
-    console.log(`[Chart API] Aggregated to ${candles.length} candles`);
-    
+
     return NextResponse.json({ 
       candles,
       debug: {

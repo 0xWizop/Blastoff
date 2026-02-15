@@ -59,19 +59,20 @@ export async function GET(req: Request) {
 
     let tokenBalance = null;
     if (token) {
+      const tokenAddress = token as `0x${string}`;
       const decimals = await client.readContract({
-        address: token,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: 'decimals',
       });
       const balance = await client.readContract({
-        address: token,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [wallet],
       });
       tokenBalance = {
-        address: token,
+        address: tokenAddress,
         balance: balance.toString(),
         formatted: Number(formatUnits(balance, decimals)),
         decimals: Number(decimals),

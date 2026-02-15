@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         chain: getChain(chainConfig.chainId),
         transport: http(chainConfig.rpcUrl),
       });
-      const receipt = await client.getTransactionReceipt({ hash: txHash });
+      const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` });
       let tokenAddress: `0x${string}` | null = null;
 
       for (const log of receipt.logs) {

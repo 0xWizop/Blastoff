@@ -329,6 +329,5 @@ interface SwapQuote {
 | `src/hooks/useTokens.ts` | Token data fetching hooks |
 | `src/hooks/useBalances.ts` | Balance fetching hook |
 | `src/hooks/useSwap.ts` | Swap execution hook |
-| `src/services/api.ts` | API service layer with all endpoints documented |
 | `src/config/contracts.ts` | Contract addresses config |
 | `src/types/index.ts` | TypeScript interfaces |

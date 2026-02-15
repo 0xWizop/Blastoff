@@ -1,10 +1,8 @@
 import { Token } from '@/types';
 
 /**
- * Seed data for initial database population
+ * Seed data for initial database population.
  * Used by: scripts/seed-firestore.ts and /api/admin/seed-mock-tokens
- * 
- * TODO [Backend]: Replace with real token data from your sources
  */
 export const mockTokens: Token[] = [
   {
