@@ -134,12 +134,12 @@ export function TokenChart({ address }: TokenChartProps) {
         vertLines: {
           color: 'rgba(255, 255, 255, 0.12)',
           visible: true,
-          style: 1,
+          style: 1, // Dotted – reads lighter than solid
         },
         horzLines: {
           color: 'rgba(255, 255, 255, 0.14)',
           visible: true,
-          style: 1,
+          style: 1, // Dotted – reads lighter than solid
         },
       },
       width: chartContainerRef.current.clientWidth,
@@ -179,15 +179,16 @@ export function TokenChart({ address }: TokenChartProps) {
       },
       rightPriceScale: {
         visible: true,
-        borderColor: 'rgba(255, 255, 255, 0.25)',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
         borderVisible: true,
         scaleMargins: { top: 0.1, bottom: 0.2 },
         autoScale: true,
         alignLabels: true,
         entireTextOnly: false,
         ticksVisible: true,
-        minimumWidth: 90,
-        textColor: '#d0d0d0',
+        ensureEdgeTickMarksVisible: true,
+        minimumWidth: 92,
+        textColor: '#e0e0e0',
       },
       localization: {
         priceFormatter: (price: number) => {
@@ -281,15 +282,16 @@ export function TokenChart({ address }: TokenChartProps) {
       chart.timeScale().fitContent();
     }
 
-    // Ensure right price scale shows all tick levels (per TradingView price scale docs)
+    // Ensure right price scale shows edge ticks and all levels (per TradingView price scale docs)
     try {
       chart.priceScale('right').applyOptions({
         visible: true,
         entireTextOnly: false,
         ticksVisible: true,
+        ensureEdgeTickMarksVisible: true,
         borderVisible: true,
-        textColor: '#d0d0d0',
-        minimumWidth: 90,
+        textColor: '#e0e0e0',
+        minimumWidth: 92,
       });
     } catch (_) {}
 
@@ -376,12 +378,12 @@ export function TokenChart({ address }: TokenChartProps) {
         <div className="flex items-center gap-3">
           <UTCClock />
           <div className="h-4 w-px bg-blastoff-border" />
-          <div className="flex gap-0.5">
+          <div className="flex flex-wrap gap-1.5">
             {timeframes.map((tf) => (
               <button
                 key={tf.value}
                 onClick={() => setTimeframe(tf.value)}
-                className={`px-2 py-1 text-[11px] font-medium transition-all ${
+                className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
                   timeframe === tf.value
                     ? 'bg-blastoff-orange text-white'
                     : 'text-blastoff-text-muted hover:text-blastoff-text hover:bg-blastoff-border/50'
