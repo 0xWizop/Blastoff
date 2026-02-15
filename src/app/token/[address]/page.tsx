@@ -180,7 +180,7 @@ export default function TokenPage() {
             {/* Price Display */}
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <p className="text-2xl font-bold font-mono text-blastoff-text">
+                <p className="text-lg font-medium font-mono text-blastoff-text">
                   ${displayPrice > 0 && displayPrice < 0.0001 ? displayPrice.toFixed(8).replace(/\.?0+$/, '') || '0' : displayPrice.toFixed(6).replace(/\.?0+$/, '') || '0'}
                 </p>
               </div>

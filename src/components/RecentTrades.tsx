@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useChainId } from 'wagmi';
 import { Trade } from '@/types';
+import { getChainConfig } from '@/config/contracts';
 import { Spinner } from './Spinner';
 import { useTradeStream } from '@/hooks/useTradeStream';
 
@@ -37,13 +39,15 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
   const [error, setError] = useState<string | null>(null);
   const [newTradeId, setNewTradeId] = useState<string | null>(null);
 
+  const chainId = useChainId();
+  const blockExplorer = getChainConfig(chainId).blockExplorer;
+  const TRADES_CAP = 100;
+
   // Handle incoming live trades
   const handleNewTrade = useCallback((trade: Trade) => {
     setTrades(prev => {
-      // Check if trade already exists
       if (prev.some(t => t.id === trade.id)) return prev;
-      // Add new trade at the beginning, limit to 10
-      return [trade, ...prev].slice(0, 10);
+      return [trade, ...prev].slice(0, TRADES_CAP);
     });
     
     // Mark as new for animation
@@ -69,7 +73,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
       setError(null);
       
       try {
-        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=10`);
+        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=${TRADES_CAP}`);
         if (!response.ok) {
           throw new Error('Failed to fetch trades');
         }
@@ -136,28 +140,39 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
                   key={trade.id}
                   initial={isNew ? { opacity: 0, x: -10 } : false}
                   animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-center justify-between px-3 py-1.5 border-b border-blastoff-border/30 ${
+                  className={`flex items-center justify-between gap-2 px-3 py-1.5 border-b border-blastoff-border/30 ${
                     isNew ? (isBuy ? 'bg-green-500/10' : 'bg-red-500/10') : ''
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-medium w-6 ${isBuy ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-[10px] font-medium shrink-0 w-6 ${isBuy ? 'text-green-500' : 'text-red-500'}`}>
                       {isBuy ? 'BUY' : 'SELL'}
                     </span>
-                    <span className="font-mono text-[11px] text-blastoff-text">
+                    <span className="font-mono text-[11px] text-blastoff-text truncate">
                       {formatAmount(trade.amount)}
                     </span>
-                    <span className="text-[10px] text-blastoff-text-muted">
+                    <span className="text-[10px] text-blastoff-text-muted shrink-0">
                       {tokenSymbol}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span className="font-mono text-[10px] text-blastoff-text-secondary">
                       {formatValue(trade.totalValue)}
                     </span>
                     <span className="text-[9px] text-blastoff-text-muted w-6 text-right">
                       {formatTimeAgo(trade.timestamp)}
                     </span>
+                    <a
+                      href={`${blockExplorer}/tx/${trade.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-blastoff-text-muted hover:text-blastoff-orange transition-colors"
+                      title="View on explorer"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
                   </div>
                 </motion.div>
               );
@@ -170,7 +185,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
       <div className="shrink-0 px-3 py-1.5 border-t border-blastoff-border bg-blastoff-bg/50">
         <p className="text-[9px] text-blastoff-text-muted text-center">
           {trades.length > 0 
-            ? `${isConnected ? 'Live' : 'Offline'} • Last ${trades.length} trades` 
+            ? `${isConnected ? 'Live' : 'Offline'} • Scroll for more • ${trades.length} trades` 
             : isConnected 
               ? 'Streaming...'
               : 'Waiting for trades...'
