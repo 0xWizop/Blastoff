@@ -159,8 +159,8 @@ function CoinFeedContent() {
                   <span>Page {currentPage} of {totalPages}</span>
                 </div>
                 
-                {/* Token grid with loading overlay when fetching */}
-                <div className={`relative ${isFetching && !isLoading ? 'opacity-60' : ''}`}>
+                {/* Token grid - cards stay fully opaque */}
+                <div className="relative">
                   <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                     {tokens.map((token) => (
                       <CoinCard key={token.address} token={token} />

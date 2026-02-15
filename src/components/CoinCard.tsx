@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { useChainId } from 'wagmi';
 import { Token } from '@/types';
 
 interface CoinCardProps {
@@ -25,6 +27,14 @@ function formatTimeAgo(startTime: number): string {
 
 export function CoinCard({ token }: CoinCardProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const chainId = useChainId();
+
+  const prefetchToken = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['token', token.address, chainId],
+    });
+  };
 
   const socials = [
     token.website ? { key: 'website' as const, label: 'Website', href: token.website } : null,
@@ -45,6 +55,7 @@ export function CoinCard({ token }: CoinCardProps) {
     <div
       className="cursor-pointer border border-blastoff-border bg-blastoff-surface p-4 transition-all duration-300 active:border-blastoff-orange/50 sm:p-5 sm:hover:border-blastoff-orange/50"
       onClick={() => router.push(`/token/${token.address}`)}
+      onMouseEnter={prefetchToken}
       role="link"
       tabIndex={0}
       onKeyDown={(e) => {

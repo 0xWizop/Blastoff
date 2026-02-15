@@ -45,7 +45,7 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
   return list;
 }
 
-/** Single source of token list: fast Firebase response first, then live on-chain data. One network request shared by feed + Top Movers. */
+/** Single source of token list: fast Firebase first, then live on-chain. Live runs after fast succeeds to avoid duplicate load. */
 export function useTokensList() {
   const queryClient = useQueryClient();
   const chainId = useChainId();
@@ -73,6 +73,7 @@ export function useTokensList() {
     },
     placeholderData: () => queryClient.getQueryData<Token[]>(['tokensListFast', chainId]),
     staleTime: 30_000,
+    enabled: fastQuery.isSuccess && chainId != null,
   });
 
   return liveQuery;
@@ -159,10 +160,7 @@ export function useTrendingTokens() {
 }
 
 /**
- * Fetch user's position for a specific token
- * 
- * TODO [Backend]: Implement GET /api/positions/[tokenAddress]?wallet=[walletAddress]
- * Expected response: { position: UserPosition | null }
+ * Fetch user's position for a token via GET /api/positions/[tokenAddress].
  */
 export function useUserPosition(tokenAddress: string, walletAddress: string | undefined) {
   return useQuery({
@@ -178,11 +176,7 @@ export function useUserPosition(tokenAddress: string, walletAddress: string | un
 }
 
 /**
- * Get a swap quote from the backend/DEX
- * 
- * TODO [Backend]: Implement GET /api/swap/quote
- * Query params: tokenAddress, inputAmount, isBuy, slippage
- * Expected response: { quote: SwapQuote }
+ * Get a swap quote via GET /api/swap/quote.
  */
 export function useSwapQuote(params: {
   tokenAddress: string;

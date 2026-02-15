@@ -17,32 +17,7 @@ export interface Balances {
 }
 
 /**
- * Fetch user's ETH, WETH, and token balances
- * 
- * TODO [Backend]: Implement GET /api/balances?wallet=[address]&token=[tokenAddress]
- * Expected response: { balances: Balances }
- * 
- * Alternative: Use wagmi's useBalance hook directly for on-chain reads:
- * 
- * ```typescript
- * import { useBalance } from 'wagmi';
- * import { CONTRACTS } from '@/config/contracts';
- * 
- * // ETH balance
- * const { data: ethBalance } = useBalance({ address: userAddress });
- * 
- * // WETH balance  
- * const { data: wethBalance } = useBalance({ 
- *   address: userAddress,
- *   token: CONTRACTS.WETH,
- * });
- * 
- * // Token balance
- * const { data: tokenBalance } = useBalance({
- *   address: userAddress,
- *   token: tokenAddress as `0x${string}`,
- * });
- * ```
+ * Fetch user's ETH, WETH, and token balances via GET /api/balances.
  */
 export function useBalances(tokenAddress?: string) {
   const { address: walletAddress, isConnected } = useAccount();

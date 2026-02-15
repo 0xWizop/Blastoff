@@ -20,38 +20,7 @@ export interface SwapResult {
 }
 
 /**
- * Hook to execute token swaps
- * 
- * TODO [Backend]: Implement swap execution
- * 
- * Options:
- * 1. Direct on-chain via wagmi useWriteContract:
- *    - Call DEX router directly from frontend
- *    - User signs transaction in wallet
- * 
- * 2. Backend-assisted:
- *    - POST /api/swap/execute with swap params
- *    - Backend builds optimal transaction
- *    - Returns unsigned tx for user to sign
- * 
- * Example wagmi implementation:
- * ```typescript
- * import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
- * import { parseEther } from 'viem';
- * import { CONTRACTS } from '@/config/contracts';
- * 
- * const { writeContract, data: hash, isPending } = useWriteContract();
- * const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
- * 
- * // Execute swap
- * writeContract({
- *   address: CONTRACTS.UNISWAP_V3_ROUTER,
- *   abi: swapRouterAbi,
- *   functionName: 'exactInputSingle',
- *   args: [swapParams],
- *   value: isBuy ? parseEther(inputAmount.toString()) : 0n,
- * });
- * ```
+ * Execute token swaps via POST /api/swap/execute; user signs the returned transaction in wallet.
  */
 export function useSwap() {
   const { address: walletAddress, isConnected } = useAccount();

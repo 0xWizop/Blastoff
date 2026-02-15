@@ -6,6 +6,47 @@ import { getChainConfig, getContracts } from '@/config/contracts';
 // Base Sepolia (and many RPCs) limit eth_getLogs to 10,000 blocks per request
 const RPC_MAX_BLOCK_RANGE = 10_000n;
 
+/** Serialize getLogs calls to avoid RPC 429 rate limits (one at a time) */
+let getLogsQueue: Promise<unknown> = Promise.resolve();
+
+/** Run a getLogs request with 429 retry and global throttle */
+async function getLogsWithThrottle<T>(
+  client: ReturnType<typeof createPublicClient>,
+  params: GetLogsParams,
+  run: (p: GetLogsParams) => Promise<T>
+): Promise<T> {
+  const maxRetries = 3;
+  const baseDelayMs = 1500;
+
+  const attempt = async (): Promise<T> => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await run(params);
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        const is429 = status === 429;
+        if (is429 && attempt < maxRetries - 1) {
+          const delay = baseDelayMs * Math.pow(2, attempt);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error('getLogs failed after retries');
+  };
+
+  const previous = getLogsQueue;
+  let resolve: () => void;
+  getLogsQueue = new Promise<void>((r) => { resolve = r; });
+  try {
+    await previous;
+    return await attempt();
+  } finally {
+    resolve!();
+  }
+}
+
 // Function selectors for decoding TokenFactory transactions
 const BUY_FUNCTION_SELECTOR = '0xa6f2ae3a';  // buy(address,uint256)
 const SELL_FUNCTION_SELECTOR = '0x6c197ff5'; // sell(address,uint256)
@@ -88,11 +129,14 @@ async function getLogsChunked(
         ? toBlock
         : currentFrom + RPC_MAX_BLOCK_RANGE - 1n;
 
-    const logs = await client.getLogs({
+    const chunkParams = {
       ...params,
       fromBlock: currentFrom,
       toBlock: currentTo,
-    });
+    };
+    const logs = await getLogsWithThrottle(client, chunkParams, (p) =>
+      client.getLogs(p)
+    );
     allLogs.push(...logs);
 
     if (currentTo >= toBlock) break;
@@ -510,7 +554,12 @@ export async function getTokenFactoryBuys(
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, limit);
   } catch (error) {
-    console.error('Error fetching TokenFactory buys:', error);
+    const status = (error as { status?: number })?.status;
+    if (status === 429) {
+      console.warn('TokenFactory buys: rate limited (429), will retry on next load.');
+    } else {
+      console.error('Error fetching TokenFactory buys:', error);
+    }
     return [];
   }
 }
@@ -597,7 +646,12 @@ export async function getTokenFactorySells(
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, limit);
   } catch (error) {
-    console.error('Error fetching TokenFactory sells:', error);
+    const status = (error as { status?: number })?.status;
+    if (status === 429) {
+      console.warn('TokenFactory sells: rate limited (429), will retry on next load.');
+    } else {
+      console.error('Error fetching TokenFactory sells:', error);
+    }
     return [];
   }
 }

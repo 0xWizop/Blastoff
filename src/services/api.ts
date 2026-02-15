@@ -5,8 +5,8 @@
  * Each function includes documentation of expected request/response formats.
  */
 
-import { Token, ChartCandle, UserPosition, SwapQuote } from '@/types';
-import { Balances } from '@/hooks/useBalances';
+import { Token, ChartCandle, UserPosition, SwapQuote } from '../types';
+import type { Balances } from '../hooks/useBalances';
 
 const API_BASE = '/api';
 

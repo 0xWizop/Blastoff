@@ -50,8 +50,8 @@ export function LaunchTokenModal() {
   };
 
   const onLaunch = async () => {
-    if (!canSubmit) return;
-    
+    if (!canSubmit || !createdToken || !draft) return;
+
     setIsLaunching(true);
     const launchToast = toast.loading('Launching token...', {
       description: 'Please confirm the transaction in your wallet',

@@ -129,7 +129,7 @@ export function TradesFeed({ tokenAddress, tokenSymbol }: TradesFeedProps) {
     });
     
     // Mark as new for animation
-    setNewTradeIds(prev => new Set([...prev, trade.id]));
+    setNewTradeIds(prev => new Set([...Array.from(prev), trade.id]));
     
     // Remove "new" status after animation
     setTimeout(() => {
