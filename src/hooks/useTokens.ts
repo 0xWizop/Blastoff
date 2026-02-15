@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useChainId } from 'wagmi';
 import { Token, ChartCandle, UserPosition, FilterState, SwapQuote } from '@/types';
+import { DEFAULT_CHAIN_ID } from '@/config/contracts';
 
 const TOKENS_PER_PAGE = 12;
 
@@ -19,15 +20,17 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
   const now = Date.now();
   let list = (tokens || []).filter((t) => t.startTime <= now);
   if (!filters) return list;
-  if (filters.search) {
-    const search = filters.search.toLowerCase().trim();
+
+  const search = (filters.search || '').trim().toLowerCase();
+  if (search) {
     list = list.filter(
       (t) =>
-        t.name.toLowerCase().includes(search) ||
-        t.symbol.toLowerCase().includes(search) ||
+        (t.name && t.name.toLowerCase().includes(search)) ||
+        (t.symbol && t.symbol.toLowerCase().includes(search)) ||
         (t.address && t.address.toLowerCase().includes(search))
     );
   }
+
   switch (filters.sort) {
     case 'marketCap':
       list.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
@@ -39,22 +42,23 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
       list.sort((a, b) => (b.priceChange24h ?? -Infinity) - (a.priceChange24h ?? -Infinity));
       break;
     case 'newest':
-      list.sort((a, b) => b.startTime - a.startTime);
+    default:
+      list.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
       break;
   }
   return list;
 }
 
-/** Single source of token list: fast Firebase first, then live on-chain. Live runs after fast succeeds to avoid duplicate load. */
+/** Single source of token list: fast Firebase first, then live on-chain. Live runs after fast succeeds. Uses DEFAULT_CHAIN_ID when wallet not connected so stats still load. */
 export function useTokensList() {
   const queryClient = useQueryClient();
   const chainId = useChainId();
+  const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
 
   const fastQuery = useQuery({
-    queryKey: ['tokensListFast', chainId],
+    queryKey: ['tokensListFast', effectiveChainId],
     queryFn: async (): Promise<Token[]> => {
-      const params = new URLSearchParams();
-      if (chainId != null) params.set('chainId', String(chainId));
+      const params = new URLSearchParams({ chainId: String(effectiveChainId) });
       const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
       const now = Date.now();
       return (tokens || []).filter((t) => t.startTime <= now);
@@ -63,17 +67,22 @@ export function useTokensList() {
   });
 
   const liveQuery = useQuery({
-    queryKey: ['tokensList', chainId],
+    queryKey: ['tokensList', effectiveChainId],
     queryFn: async (): Promise<Token[]> => {
-      const params = new URLSearchParams({ live: 'true' });
-      if (chainId != null) params.set('chainId', String(chainId));
-      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
-      const now = Date.now();
-      return (tokens || []).filter((t) => t.startTime <= now);
+      try {
+        const params = new URLSearchParams({ live: 'true', chainId: String(effectiveChainId) });
+        const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
+        const now = Date.now();
+        return (tokens || []).filter((t) => t.startTime <= now);
+      } catch {
+        const fast = queryClient.getQueryData<Token[]>(['tokensListFast', effectiveChainId]);
+        return fast ?? [];
+      }
     },
-    placeholderData: () => queryClient.getQueryData<Token[]>(['tokensListFast', chainId]),
+    placeholderData: () => queryClient.getQueryData<Token[]>(['tokensListFast', effectiveChainId]),
     staleTime: 30_000,
-    enabled: fastQuery.isSuccess && chainId != null,
+    enabled: fastQuery.isSuccess,
+    retry: 1,
   });
 
   return liveQuery;
@@ -146,16 +155,22 @@ export function useTokenChart(address: string, timeframe: string = '1m', chainId
 
 export function useTrendingTokens() {
   const chainId = useChainId();
+  const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
   return useQuery({
-    queryKey: ['trendingTokens', chainId],
+    queryKey: ['trendingTokens', effectiveChainId],
     queryFn: async (): Promise<Token[]> => {
-      const params = new URLSearchParams();
-      if (chainId != null) params.set('chainId', String(chainId));
-      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens/trending?${params}`);
-      const now = Date.now();
-      return (tokens || []).filter((t) => t.startTime <= now);
+      try {
+        const params = new URLSearchParams({ chainId: String(effectiveChainId) });
+        const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens/trending?${params}`);
+        const now = Date.now();
+        return (tokens || []).filter((t) => t.startTime <= now);
+      } catch {
+        return [];
+      }
     },
     refetchInterval: 30000,
+    retry: 1,
+    staleTime: 20_000,
   });
 }
 

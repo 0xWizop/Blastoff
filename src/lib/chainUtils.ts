@@ -180,6 +180,81 @@ export async function getTokenFactoryState(
   }
 }
 
+/** TokenMinted event args */
+const tokenMintedEvent = parseAbi(['event TokenMinted(address indexed tokenAddress, address indexed creator)'])[0];
+
+/**
+ * Fetch all token addresses created by the TokenFactory (from TokenMinted events).
+ * Used to populate the token list from chain when Firebase has no or partial data.
+ */
+export async function getTokenAddressesFromFactory(
+  chainId?: number,
+  maxBlocksBack: number = 50000
+): Promise<{ address: Address; creator: Address; blockNumber: bigint }[]> {
+  const client = getClient(chainId);
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+  if (!factoryAddress) return [];
+
+  try {
+    const toBlock = await client.getBlockNumber();
+    const fromBlock = toBlock > BigInt(maxBlocksBack) ? toBlock - BigInt(maxBlocksBack) : 0n;
+
+    const logs = await getLogsChunked(client, {
+      address: factoryAddress,
+      event: tokenMintedEvent,
+      fromBlock,
+      toBlock,
+    });
+
+    return logs.map((log) => {
+      const args = log.args as { tokenAddress?: Address; creator?: Address };
+      return {
+        address: (args?.tokenAddress ?? log.address) as Address,
+        creator: (args?.creator ?? '0x0000000000000000000000000000000000000000') as Address,
+        blockNumber: log.blockNumber,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching TokenMinted events:', error);
+    return [];
+  }
+}
+
+/**
+ * Build a minimal token object from chain (address, name, symbol, startTime) for factory-created tokens.
+ */
+export async function getTokenMetadataFromChain(
+  tokenAddress: Address,
+  startTime: number,
+  chainId?: number
+): Promise<{ address: string; name: string; symbol: string; startTime: number; totalSupply?: number }> {
+  const client = getClient(chainId);
+  let name = 'Unknown';
+  let symbol = '???';
+  let totalSupply = 1e9;
+
+  try {
+    const [nameResult, symbolResult, totalSupplyResult] = await Promise.all([
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'name' }),
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'symbol' }),
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'totalSupply' }).catch(() => BigInt(1e9)),
+    ]);
+    name = String(nameResult ?? 'Unknown');
+    symbol = String(symbolResult ?? '???');
+    totalSupply = Number(formatUnits(totalSupplyResult ?? BigInt(1e9), 18));
+  } catch {
+    // keep defaults
+  }
+
+  return {
+    address: tokenAddress,
+    name,
+    symbol,
+    startTime,
+    totalSupply,
+  };
+}
+
 /**
  * Calculate price from TokenFactory bonding curve
  * Uses the exponential formula from the contract
@@ -278,18 +353,21 @@ export async function getTokenICOStats(
   }
 }
 
-/** Live stats for list/trending: price, marketCap, volume24h, priceChange24h */
+/** Live stats for list/trending (same sources as token page: ICO + trades + holders) */
 export interface TokenLiveStats {
   price: number;
   marketCap: number;
   volume24h: number;
   priceChange24h: number;
+  txCount24h: number;
+  holders: number;
 }
 
 const DEFAULT_SUPPLY = 1e9;
 
 /**
- * Get live on-chain stats for a token (for homepage list, trending, top movers).
+ * Get live on-chain stats for a token (same logic as /api/tokens/[address] and chart page).
+ * Used by homepage list and trending so cards match token page data.
  * @param tradesLimit - lower = faster (e.g. 60 for list, 200 for single token)
  */
 export async function getTokenLiveStats(
@@ -299,9 +377,10 @@ export async function getTokenLiveStats(
   tradesLimit: number = 200
 ): Promise<TokenLiveStats> {
   try {
-    const [icoStats, trades] = await Promise.all([
+    const [icoStats, trades, holdersData] = await Promise.all([
       getTokenICOStats(tokenAddress, chainId),
       getTokenTrades(tokenAddress, chainId, tradesLimit),
+      getTokenHolders(tokenAddress, chainId, 10).catch(() => ({ holders: [], totalHolders: 0 })),
     ]);
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
@@ -319,9 +398,23 @@ export async function getTokenLiveStats(
       const openPrice = trades24h[0].price;
       if (openPrice > 0) priceChange24h = ((icoStats.currentPrice - openPrice) / openPrice) * 100;
     }
-    return { price, marketCap, volume24h, priceChange24h };
+    return {
+      price,
+      marketCap,
+      volume24h,
+      priceChange24h,
+      txCount24h: trades24h.length,
+      holders: holdersData.totalHolders,
+    };
   } catch (e) {
-    return { price: 0, marketCap: 0, volume24h: 0, priceChange24h: 0 };
+    return {
+      price: 0,
+      marketCap: 0,
+      volume24h: 0,
+      priceChange24h: 0,
+      txCount24h: 0,
+      holders: 0,
+    };
   }
 }
 

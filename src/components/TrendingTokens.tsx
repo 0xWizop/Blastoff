@@ -24,6 +24,8 @@ export function TrendingTokens({ variant = 'default' }: TrendingTokensProps) {
     );
   }
 
+  const hasTokens = (tokens?.length ?? 0) > 0;
+
   // Horizontal variant for mobile
   if (variant === 'horizontal') {
     return (
@@ -31,6 +33,9 @@ export function TrendingTokens({ variant = 'default' }: TrendingTokensProps) {
         <h2 className="mb-3 font-display text-base font-semibold text-blastoff-text">
           Trending
         </h2>
+        {!hasTokens ? (
+          <p className="py-4 text-center text-xs text-blastoff-text-muted">No trending activity yet — real tokens with 24h volume or price change will appear here.</p>
+        ) : (
         <div className="-mx-3 overflow-x-auto px-3">
           <div className="flex gap-3">
             {tokens?.map((token, index) => (
@@ -55,6 +60,7 @@ export function TrendingTokens({ variant = 'default' }: TrendingTokensProps) {
             ))}
           </div>
         </div>
+        )}
       </div>
     );
   }
@@ -65,6 +71,9 @@ export function TrendingTokens({ variant = 'default' }: TrendingTokensProps) {
       <h2 className="mb-4 font-display text-lg font-semibold text-blastoff-text">
         Trending
       </h2>
+      {!hasTokens ? (
+        <p className="py-4 text-center text-xs text-blastoff-text-muted">No trending activity yet — real tokens with 24h volume or price change will appear here.</p>
+      ) : (
       <div className="space-y-2">
         {tokens?.map((token, index) => (
           <Link
@@ -95,6 +104,7 @@ export function TrendingTokens({ variant = 'default' }: TrendingTokensProps) {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }
