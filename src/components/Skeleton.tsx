@@ -7,7 +7,8 @@ interface SkeletonProps {
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse bg-blastoff-border ${className}`}
+      className={`animate-pulse rounded-sm bg-blastoff-border/80 ${className}`}
+      aria-hidden
     />
   );
 }

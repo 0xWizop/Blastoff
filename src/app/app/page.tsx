@@ -165,16 +165,8 @@ function CoinFeedContent() {
               </div>
             ) : tokens.length > 0 ? (
               <>
-                {/* Token count and page info */}
-                <div className="mt-4 mb-3 flex items-center justify-between text-xs text-blastoff-text-muted sm:mt-6">
-                  <span>
-                    Showing {(currentPage - 1) * 12 + 1}-{Math.min(currentPage * 12, totalTokens)} of {totalTokens} tokens
-                  </span>
-                  <span>Page {currentPage} of {totalPages}</span>
-                </div>
-                
-                {/* Token grid - cards stay fully opaque */}
-                <div className="relative">
+                {/* Token grid */}
+                <div className="relative mt-4 sm:mt-6">
                   <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                     {tokens.map((token) => (
                       <CoinCard key={token.address} token={token} />
@@ -182,57 +174,58 @@ function CoinFeedContent() {
                   </div>
                 </div>
 
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="mt-6 flex items-center justify-center gap-1 sm:gap-2">
-                    {/* Previous button */}
-                    <button
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="flex h-9 w-9 items-center justify-center border border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-blastoff-border disabled:hover:text-blastoff-text-secondary sm:h-10 sm:w-10"
-                      aria-label="Previous page"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-
-                    {/* Page numbers */}
-                    <div className="flex items-center gap-1">
-                      {getPageNumbers().map((page, idx) => 
+                {/* Token count + pagination - compact bar, header-style */}
+                <div className="mt-4 flex flex-col gap-0 border border-blastoff-separator bg-blastoff-surface sm:mt-6 sm:flex-row sm:items-stretch sm:divide-x sm:divide-blastoff-separator">
+                  <div className="flex h-10 items-center border-b border-blastoff-separator px-4 sm:border-b-0">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/90">
+                      {(currentPage - 1) * 12 + 1}–{Math.min(currentPage * 12, totalTokens)} of {totalTokens}
+                    </span>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-stretch divide-x divide-blastoff-separator">
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="flex h-10 w-10 items-center justify-center text-white/90 transition-colors hover:bg-blastoff-orange disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        aria-label="Previous page"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      {getPageNumbers().map((page, idx) =>
                         page === 'ellipsis' ? (
-                          <span key={`ellipsis-${idx}`} className="px-2 text-blastoff-text-muted">
-                            ...
+                          <span key={`ellipsis-${idx}`} className="flex h-10 w-8 items-center justify-center text-[11px] text-blastoff-text-muted">
+                            …
                           </span>
                         ) : (
                           <button
                             key={page}
+                            type="button"
                             onClick={() => goToPage(page)}
-                            className={`flex h-9 w-9 items-center justify-center border text-sm font-medium transition-all sm:h-10 sm:w-10 ${
+                            className={`flex h-10 w-10 items-center justify-center text-[11px] font-medium uppercase tracking-wider transition-colors ${
                               currentPage === page
-                                ? 'border-blastoff-orange bg-blastoff-orange text-white'
-                                : 'border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary hover:border-blastoff-orange hover:text-blastoff-text'
+                                ? 'bg-blastoff-orange text-white'
+                                : 'text-white/90 hover:bg-blastoff-orange'
                             }`}
                           >
                             {page}
                           </button>
                         )
                       )}
+                      <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="flex h-10 w-10 items-center justify-center text-white/90 transition-colors hover:bg-blastoff-orange disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        aria-label="Next page"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
                     </div>
-
-                    {/* Next button */}
-                    <button
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="flex h-9 w-9 items-center justify-center border border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-blastoff-border disabled:hover:text-blastoff-text-secondary sm:h-10 sm:w-10"
-                      aria-label="Next page"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </>
             ) : (
               <div className="mt-4 flex h-48 items-center justify-center border border-blastoff-border bg-blastoff-surface sm:mt-6 sm:h-64">

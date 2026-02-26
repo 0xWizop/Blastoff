@@ -7,6 +7,7 @@ import { useAccount, useChainId, useSendTransaction } from 'wagmi';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/useAppStore';
 import { ButtonSpinner } from '@/components/Spinner';
+import { WalletButton } from '@/components/WalletButton';
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -260,10 +261,11 @@ export default function CreateTokenPage() {
           </p>
 
           {!isConnected && (
-            <div className="mt-6 border border-blastoff-border bg-blastoff-bg p-4">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border border-blastoff-border bg-blastoff-bg p-4">
               <p className="text-sm text-blastoff-text-secondary">
                 Connect your wallet to create a token.
               </p>
+              <WalletButton />
             </div>
           )}
 
