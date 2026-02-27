@@ -71,6 +71,8 @@ export function SwapPanel({ token }: SwapPanelProps) {
     }
   }, [tfError]);
 
+  // Quote for both ICO and DEX. For ICO we only use outputAmount to drive
+  // "You receive"/"You get" and hide price impact/fee in the UI.
   const { data: quote } = useSwapQuote({
     tokenAddress: token.address,
     inputAmount: parseFloat(amount) || 0,
@@ -80,11 +82,13 @@ export function SwapPanel({ token }: SwapPanelProps) {
 
   const isDisabled = !isConnected;
 
-  // ICO: amount = token amount (like old snippet). DEX: amount = pay currency (ETH or token)
+  // Amount always represents what the user is paying:
+  // - Buys: ETH in
+  // - Sells: token amount
   const setPct = (pct: number) => {
-    const base = useICO ? tokenBalance : (isBuy ? wethBalance : tokenBalance);
+    const base = isBuy ? wethBalance : tokenBalance;
     const v = pct === 100 ? base : (base * pct) / 100;
-    const formatted = useICO ? v.toFixed(0) : (isBuy ? v.toFixed(4) : v.toFixed(0));
+    const formatted = isBuy ? v.toFixed(4) : v.toFixed(0);
     setAmount(formatted);
   };
 
@@ -114,37 +118,69 @@ export function SwapPanel({ token }: SwapPanelProps) {
 
     try {
       if (useICO) {
-        // Old-snippet logic: amount = token amount for both buy and sell
-        const tokenAmount = parseFloat(amount);
-        if (!Number.isFinite(tokenAmount) || tokenAmount <= 0) {
-          toast.error('Enter token amount', { id: swapToast });
+        const numericAmount = parseFloat(amount);
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+          toast.error(isBuy ? 'Enter ETH amount' : 'Enter token amount', { id: swapToast });
           return;
         }
-        const tokenDecimals = 18;
-        const result = isBuy
-          ? await executeTokenFactoryBuy({
-              tokenAddress: token.address,
-              tokenAmount,
-              tokenDecimals,
-            })
-          : await executeTokenFactorySell({
-              tokenAddress: token.address,
-              tokenAmount,
-              tokenDecimals,
-            });
 
-        if (result) {
-          toast.success(isBuy ? `Bought ${token.symbol}!` : `Sold ${token.symbol}!`, {
-            id: swapToast,
-            description: isBuy ? `Received ${tokenAmount.toFixed(0)} ${token.symbol}` : 'Received ETH',
+        const tokenDecimals = 18;
+
+        if (isBuy) {
+          // For ICO buys the user inputs ETH, and we rely on the quote
+          // to determine how many tokens they receive.
+          if (!quote || !Number.isFinite(quote.outputAmount) || quote.outputAmount <= 0) {
+            toast.error('Could not get quote. Try again.', { id: swapToast });
+            return;
+          }
+
+          const tokenAmount = quote.outputAmount;
+          const result = await executeTokenFactoryBuy({
+            tokenAddress: token.address,
+            tokenAmount,
+            tokenDecimals,
           });
-          setAmount('');
-          resetTokenFactory();
+
+          if (result) {
+            toast.success(`Bought ${token.symbol}!`, {
+              id: swapToast,
+              description: `Paid ${numericAmount.toFixed(4)} ETH • Received ${tokenAmount.toFixed(0)} ${token.symbol}`,
+            });
+            setAmount('');
+            resetTokenFactory();
+          } else {
+            toast.error('Swap failed', {
+              id: swapToast,
+              description: tfError || 'Transaction rejected or failed',
+            });
+          }
         } else {
-          toast.error('Swap failed', {
-            id: swapToast,
-            description: tfError || 'Transaction rejected or failed',
+          // ICO sells: user inputs token amount, we sell back to the curve.
+          const tokenAmount = numericAmount;
+          const result = await executeTokenFactorySell({
+            tokenAddress: token.address,
+            tokenAmount,
+            tokenDecimals,
           });
+
+          if (result) {
+            const receivedEth =
+              quote && Number.isFinite(quote.outputAmount) && quote.outputAmount > 0
+                ? `${quote.outputAmount.toFixed(4)} ETH`
+                : 'ETH';
+
+            toast.success(`Sold ${token.symbol}!`, {
+              id: swapToast,
+              description: `Received ${receivedEth}`,
+            });
+            setAmount('');
+            resetTokenFactory();
+          } else {
+            toast.error('Swap failed', {
+              id: swapToast,
+              description: tfError || 'Transaction rejected or failed',
+            });
+          }
         }
       } else {
         if (!quote) {
@@ -251,11 +287,11 @@ export function SwapPanel({ token }: SwapPanelProps) {
         </button>
       </div>
 
-      {/* Input/Output Section - ICO: amount = token amount (like old snippet) */}
+      {/* Input/Output Section */}
       <div className="mb-3 space-y-2 sm:mb-4 sm:space-y-3">
         <div>
           <label className="mb-1 block text-xs text-blastoff-text-secondary">
-            {useICO ? 'Amount (tokens)' : isBuy ? 'You pay' : 'You sell'}
+            {isBuy ? 'You pay (ETH)' : 'You sell'}
           </label>
           <div className="relative">
             <input
@@ -268,7 +304,7 @@ export function SwapPanel({ token }: SwapPanelProps) {
               disabled={isDisabled}
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blastoff-text-secondary sm:right-4 sm:text-sm">
-              {useICO ? token.symbol : (isBuy ? 'WETH' : token.symbol)}
+              {isBuy ? 'ETH' : token.symbol}
             </span>
           </div>
           <div className="mt-2 grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -284,7 +320,12 @@ export function SwapPanel({ token }: SwapPanelProps) {
             ))}
           </div>
           <p className="mt-1.5 text-[11px] text-blastoff-text-muted sm:mt-2 sm:text-xs">
-            Balance: {balancesLoading ? '...' : useICO ? `${tokenBalance.toLocaleString()} ${token.symbol}` : (isBuy ? `${wethBalance.toFixed(4)} WETH` : `${tokenBalance.toLocaleString()} ${token.symbol}`)}
+            Balance:{' '}
+            {balancesLoading
+              ? '...'
+              : isBuy
+                ? `${wethBalance.toFixed(4)} ETH`
+                : `${tokenBalance.toLocaleString()} ${token.symbol}`}
           </p>
         </div>
 
@@ -298,24 +339,28 @@ export function SwapPanel({ token }: SwapPanelProps) {
 
         <div>
           <label className="mb-1 block text-xs text-blastoff-text-secondary">
-            {useICO ? (isBuy ? 'You pay (ETH)' : 'You get (ETH)') : (isBuy ? 'You receive' : 'You get')}
+            {isBuy ? `You receive (${token.symbol})` : 'You get (ETH)'}
           </label>
           <div className="relative">
             <input
               type="text"
-              value={useICO ? '—' : (quote?.outputAmount != null ? quote.outputAmount.toFixed(4) : '0.0')}
+              value={
+                quote && parseFloat(amount) > 0
+                  ? quote.outputAmount.toFixed(4)
+                  : '0.0'
+              }
               readOnly
               className="w-full border border-blastoff-border bg-blastoff-bg px-3 py-3 pr-16 text-base text-blastoff-text-secondary sm:px-4 sm:text-lg"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blastoff-text-secondary sm:right-4 sm:text-sm">
-              {useICO ? 'ETH' : (isBuy ? token.symbol : 'WETH')}
+              {isBuy ? token.symbol : 'ETH'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Quote Details */}
-      {quote && parseFloat(amount) > 0 && (
+      {/* Quote Details (DEX only) */}
+      {!useICO && quote && parseFloat(amount) > 0 && (
         <div className="mb-3 space-y-1 bg-blastoff-bg p-2.5 text-[11px] sm:mb-4 sm:p-3 sm:text-xs">
           <div className="flex justify-between text-blastoff-text-secondary">
             <span>Price Impact</span>
@@ -324,7 +369,7 @@ export function SwapPanel({ token }: SwapPanelProps) {
             </span>
           </div>
           <div className="flex justify-between text-blastoff-text-secondary">
-            <span>Fee</span>
+            <span>DEX fee</span>
             <span>{quote.fee.toFixed(4)} ETH</span>
           </div>
         </div>
@@ -341,7 +386,7 @@ export function SwapPanel({ token }: SwapPanelProps) {
       ) : swapPending ? (
         <button
           disabled
-          className="flex w-full items-center justify-center gap-2 bg-blastoff-orange/50 py-3.5 text-sm font-medium text-white sm:py-3"
+          className="flex w-full items-center justify-center gap-2 bg-blastoff-border py-3.5 text-sm font-medium text-blastoff-text sm:py-3"
         >
           <ButtonSpinner />
           {useICO ? (tfStatus === 'confirming' ? 'Confirming...' : tfStatus === 'approve' ? 'Approve...' : 'Processing...') : txStatus === 'confirming' ? 'Confirming...' : 'Processing...'}
@@ -358,10 +403,10 @@ export function SwapPanel({ token }: SwapPanelProps) {
           <button
             onClick={handleSwap}
             disabled={!amount || parseFloat(amount) <= 0}
-            className={`w-full py-3.5 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted sm:py-3 ${
-              isBuy 
-                ? 'bg-blastoff-success/80 active:bg-blastoff-success sm:hover:bg-blastoff-success sm:hover:shadow-glow-green' 
-                : 'bg-blastoff-error/80 active:bg-blastoff-error sm:hover:bg-blastoff-error sm:hover:shadow-glow-red'
+            className={`w-full py-3.5 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted sm:py-3 ${
+              isBuy
+                ? 'bg-blastoff-success/20 text-blastoff-success active:bg-blastoff-success/30 sm:hover:bg-blastoff-success/30'
+                : 'bg-blastoff-error/20 text-blastoff-error active:bg-blastoff-error/30 sm:hover:bg-blastoff-error/30'
             }`}
           >
             {isBuy ? 'Buy' : 'Sell'} {token.symbol}

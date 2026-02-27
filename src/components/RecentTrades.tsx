@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useChainId } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trade } from '@/types';
 import { Spinner } from './Spinner';
@@ -36,6 +37,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newTradeId, setNewTradeId] = useState<string | null>(null);
+  const chainId = useChainId();
 
   // Handle incoming live trades
   const handleNewTrade = useCallback((trade: Trade) => {
@@ -69,7 +71,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
       setError(null);
       
       try {
-        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=10`);
+        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=10&chainId=${chainId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch trades');
         }

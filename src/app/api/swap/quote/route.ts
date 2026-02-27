@@ -87,8 +87,8 @@ async function calculateICOPriceImpact(
         fee,
       };
     } else {
-      // Selling tokens back to the curve (if supported)
-      // For now, return conservative estimates
+      // Selling tokens back to the curve (if supported).
+      // UI does not currently surface ICO price impact/fees, so keep numbers modest.
       const oneToken = BigInt(1e18);
       const priceForOne = await client.readContract({
         address: factoryAddress,
@@ -96,16 +96,15 @@ async function calculateICOPriceImpact(
         functionName: 'calculateRequiredBaseCoinExp',
         args: [tokenAddress, oneToken],
       });
-      
-      // Rough estimate for selling
+
       const tokensToSell = amountIn;
       const estimatedEth = (tokensToSell * priceForOne) / oneToken;
-      const outputAmount = Number(formatUnits(estimatedEth, 18)) * 0.95; // 5% slippage estimate
-      
+      const outputAmount = Number(formatUnits(estimatedEth, 18));
+
       return {
-        priceImpact: 5, // Conservative estimate for sells
+        priceImpact: 1,
         outputAmount,
-        fee: outputAmount * 0.01,
+        fee: outputAmount * 0.005,
       };
     }
   } catch (error) {
