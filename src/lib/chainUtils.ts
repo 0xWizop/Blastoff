@@ -877,18 +877,11 @@ export async function getTokenTrades(
     }
   }
 
-  // ICO: fetch both buys and sells, merge and sort by time
-  const [buys, sells] = await Promise.all([
-    getTokenFactoryBuys(tokenAddress, chainId, limit),
-    getTokenFactorySells(tokenAddress, chainId, limit),
-  ]);
-
-  const byTx = new Map<string, Trade>();
-  for (const t of [...buys, ...sells]) {
-    // Prefer existing by txHash so we don't duplicate the same tx (buy and sell are mutually exclusive per tx)
-    if (!byTx.has(t.txHash)) byTx.set(t.txHash, t);
-  }
-  return Array.from(byTx.values())
+  // ICO: for now, use TokenFactory buys only when building historical candles/trades.
+  // Sells are still recorded for PnL via /api/trades/record but are not yet folded back
+  // into candles; this avoids odd red candles when only buys have occurred.
+  const buys = await getTokenFactoryBuys(tokenAddress, chainId, limit);
+  return buys
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, limit);
 }

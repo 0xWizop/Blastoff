@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useChainId } from 'wagmi';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Trade } from '@/types';
 import { getChainConfig } from '@/config/contracts';
 import { Spinner } from './Spinner';
@@ -38,7 +38,6 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newTradeId, setNewTradeId] = useState<string | null>(null);
-
   const chainId = useChainId();
   const blockExplorer = getChainConfig(chainId).blockExplorer;
   const TRADES_CAP = 100;
@@ -73,7 +72,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
       setError(null);
       
       try {
-        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=${TRADES_CAP}`);
+        const response = await fetch(`/api/tokens/${tokenAddress}/trades?limit=${TRADES_CAP}&chainId=${chainId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch trades');
         }
@@ -89,7 +88,7 @@ export function RecentTrades({ tokenAddress, tokenSymbol }: RecentTradesProps) {
     };
 
     loadTrades();
-  }, [tokenAddress]);
+  }, [tokenAddress, chainId]);
 
   const buyCount = trades.filter((t) => t.type === 'buy').length;
   const sellCount = trades.filter((t) => t.type === 'sell').length;

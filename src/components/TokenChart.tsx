@@ -125,19 +125,20 @@ export function TokenChart({ address }: TokenChartProps) {
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { color: '#0a0a0a' },
-        textColor: '#a0a0a0',
+        // Match app surface background so chart blends with other cards
+        background: { color: '#111111' },
+        textColor: '#c0c0c0',
         fontFamily: "'SF Mono', 'Fira Code', monospace",
         fontSize: 11,
       },
       grid: {
         vertLines: {
-          color: 'rgba(255, 255, 255, 0.12)',
+          color: 'rgba(255, 255, 255, 0.05)',
           visible: true,
           style: 1, // Dotted – reads lighter than solid
         },
         horzLines: {
-          color: 'rgba(255, 255, 255, 0.14)',
+          color: 'rgba(255, 255, 255, 0.07)',
           visible: true,
           style: 1, // Dotted – reads lighter than solid
         },
@@ -161,34 +162,29 @@ export function TokenChart({ address }: TokenChartProps) {
       },
       leftPriceScale: { visible: false },
       timeScale: {
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'rgba(255, 255, 255, 0.16)',
         borderVisible: true,
         timeVisible: true,
         secondsVisible: false,
-        barSpacing: 6,
+        barSpacing: 4,          // slimmer candles, TradingView-like
         minBarSpacing: 2,
         fixLeftEdge: false,
         fixRightEdge: false,
-        tickMarkFormatter: (time: unknown, tickMarkType: number) => {
-          const date = typeof time === 'number' ? new Date(time * 1000) : new Date((time as { year?: number; month?: number; day?: number })?.year ?? 0, ((time as { month?: number })?.month ?? 1) - 1, (time as { day?: number })?.day ?? 1);
-          // TickMarkType: Year=0, Month=1, DayOfMonth=2, Time=3, TimeWithSeconds=4
-          if (tickMarkType <= 1) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          if (tickMarkType === 2) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-        },
+        rightOffset: 8,
       },
       rightPriceScale: {
         visible: true,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderColor: 'rgba(255, 255, 255, 0.16)',
         borderVisible: true,
-        scaleMargins: { top: 0.1, bottom: 0.2 },
+        // Tighter margins so more vertical space is used for candles + labels
+        scaleMargins: { top: 0.05, bottom: 0.08 },
         autoScale: true,
         alignLabels: true,
         entireTextOnly: false,
         ticksVisible: true,
         ensureEdgeTickMarksVisible: true,
-        minimumWidth: 92,
-        textColor: '#e0e0e0',
+        minimumWidth: 90,
+        textColor: '#e5e5e5',
       },
       localization: {
         priceFormatter: (price: number) => {
@@ -212,8 +208,9 @@ export function TokenChart({ address }: TokenChartProps) {
       },
     });
 
-    // Flat/doji candles (O≈H≈L≈C) render as thin lines. Enforce a minimum body = % of price so they have visible height.
-    const minSpreadPct = 0.02; // 2% of price – candles get visibly taller on the Y axis
+    // Flat/doji candles (O≈H≈L≈C) render as thin lines. Enforce a minimum body = % of price so they stay visible,
+    // but use a small value so the Y-scale doesn't explode when there are only a few trades.
+    const minSpreadPct = 0.005; // 0.5% of price
     const normalizedCandles = chartData.map((c) => {
       const { open, high, low, close } = c;
       const range = Math.max(high - low, Math.abs(close - open), 1e-15);
@@ -234,13 +231,13 @@ export function TokenChart({ address }: TokenChartProps) {
     // Candlestick series – full bodies, clear wicks; title shows as Y-axis label
     const candlestickSeries = chart.addCandlestickSeries({
       title: 'Price (ETH)',
-      upColor: '#22c55e',
-      downColor: '#ef4444',
-      borderUpColor: '#22c55e',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e',
-      wickDownColor: '#ef4444',
-      borderVisible: true,
+      upColor: '#16a34a',
+      downColor: '#dc2626',
+      borderUpColor: '#16a34a',
+      borderDownColor: '#dc2626',
+      wickUpColor: '#16a34a',
+      wickDownColor: '#dc2626',
+      borderVisible: false,
       wickVisible: true,
     });
 
@@ -266,17 +263,18 @@ export function TokenChart({ address }: TokenChartProps) {
     const volumeData = chartData.map((candle) => ({
       time: candle.time,
       value: candle.volume || 0,
-      color: candle.close >= candle.open ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+      color: candle.close >= candle.open ? 'rgba(34, 197, 94, 0.32)' : 'rgba(239, 68, 68, 0.32)',
     }));
 
     volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
-    // Zoom out: show more candles (last ~100) for better context
-    const visibleCandles = Math.min(100, Math.max(30, chartData.length));
-    if (chartData.length >= visibleCandles) {
-      const from = chartData[chartData.length - visibleCandles].time;
-      const to = chartData[chartData.length - 1].time;
+    // Show a reasonable window of candles; let barSpacing handle perceived width
+    const total = chartData.length;
+    const visibleCandles = Math.min(100, Math.max(30, total));
+    if (total >= visibleCandles) {
+      const from = chartData[total - visibleCandles].time;
+      const to = chartData[total - 1].time;
       chart.timeScale().setVisibleRange({ from, to });
     } else {
       chart.timeScale().fitContent();
@@ -297,7 +295,7 @@ export function TokenChart({ address }: TokenChartProps) {
 
     chartRef.current = chart;
 
-    // Subscribe to crosshair move
+    // Subscribe to crosshair move for OHLC hover readout
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
     const handleResize = () => {
@@ -321,10 +319,10 @@ export function TokenChart({ address }: TokenChartProps) {
         volumeSeriesRef.current = null;
       }
     };
-  }, [chartData, isLoading, handleCrosshairMove]);
+  }, [chartData, isLoading, handleCrosshairMove, timeframe]);
 
   return (
-    <div className="border border-blastoff-border bg-[#0a0a0a] h-full flex flex-col overflow-hidden">
+    <div className="border border-blastoff-border bg-blastoff-surface h-full flex flex-col overflow-hidden">
       {/* Header with OHLC and Controls */}
       <div className="shrink-0 flex flex-col gap-2 p-3 border-b border-blastoff-border sm:flex-row sm:items-center sm:justify-between">
         {/* OHLC Display */}

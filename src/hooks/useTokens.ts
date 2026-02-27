@@ -28,13 +28,19 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
   let list = (tokens || []).filter((t) => t.startTime <= now);
   if (!filters) return list;
 
+  // Status: only show tokens matching selected status when not ALL
+  if (filters.status && filters.status !== 'ALL') {
+    list = list.filter((t) => t.status === filters.status);
+  }
+
   const search = (filters.search || '').trim().toLowerCase();
   if (search) {
     list = list.filter(
       (t) =>
         (t.name && t.name.toLowerCase().includes(search)) ||
         (t.symbol && t.symbol.toLowerCase().includes(search)) ||
-        (t.address && t.address.toLowerCase().includes(search))
+        (t.address && t.address.toLowerCase().includes(search)) ||
+        (t.description && t.description.toLowerCase().includes(search))
     );
   }
 

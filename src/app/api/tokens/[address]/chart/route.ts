@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAddress } from 'viem';
 import { getTokenTrades, aggregateToCandles, getTokenPrice, getTokenICOStats } from '@/lib/chainUtils';
 import { DEFAULT_CHAIN_ID, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
+import { getTradesFromStore, saveTradesToStore } from '@/lib/firestoreTrades';
 
 export const runtime = 'nodejs';
 
@@ -22,25 +23,33 @@ export async function GET(
     const chainIdParam = url.searchParams.get('chainId');
     const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
 
-    // Fetch enough trades for all timeframes (1m needs more for density, but keep this modest for speed)
-    const trades = await getTokenTrades(tokenAddress, chainId, 150);
+    // Prefer persisted trades if present
+    const historyLimit = 500; // more for chart density
+    let trades = await getTradesFromStore(tokenAddress, chainId, historyLimit);
+
+    // Backfill from chain when store is empty / too shallow
+    if (trades.length < 2) {
+      const onChainTrades = await getTokenTrades(tokenAddress, chainId, historyLimit);
+      if (onChainTrades.length) {
+        await saveTradesToStore(onChainTrades, chainId);
+        trades = onChainTrades;
+      }
+    }
 
     // Get ICO stats for current price
     const icoStats = await getTokenICOStats(tokenAddress, chainId);
     const currentPrice = icoStats.currentPrice;
 
-    // If no trades, return empty candles array or single price point
+    // If no trades anywhere, keep the existing single-candle / empty response behaviour
     if (trades.length === 0) {
       const now = Math.floor(Date.now() / 1000);
 
-      // If there's collateral raised, we have buys but couldn't detect individual trades
-      // Show a single candle at current price to indicate there IS activity
       if (icoStats.collateralRaised > 0) {
-        const startPrice = DEFAULT_INITIAL_PRICE; // Initial bonding curve price
+        const startPrice = DEFAULT_INITIAL_PRICE;
         
         return NextResponse.json({ 
           candles: [{
-            time: now - 3600, // 1 hour ago
+            time: now - 3600,
             open: startPrice,
             high: currentPrice * 1.01,
             low: startPrice * 0.99,
