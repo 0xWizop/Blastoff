@@ -7,6 +7,7 @@ import { useAccount, useChainId, useSendTransaction } from 'wagmi';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/useAppStore';
 import { ButtonSpinner } from '@/components/Spinner';
+import { WalletButton } from '@/components/WalletButton';
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
@@ -237,12 +238,133 @@ export default function CreateTokenPage() {
     `w-full border bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none transition-colors ${
       getFieldError(field)
         ? 'border-red-500 focus:border-red-500'
-        : 'border-blastoff-border focus:border-blastoff-orange'
+        : 'border-blastoff-separator focus:border-blastoff-orange'
     }`;
+
+  const previewSymbol = (symbol || '').trim() || 'SYMBOL';
+  const previewName = (name || '').trim() || 'Token name';
+  const previewInitial = (previewSymbol || previewName).charAt(0).toUpperCase() || 'T';
+  const previewSupply = supply || '—';
+  const previewDecimals = decimals || '18';
+
+  function PreviewCard() {
+    return (
+      <>
+      <div className="border border-blastoff-separator bg-blastoff-surface/90 p-5">
+        <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-[0.18em] text-white/80">
+          Launch Preview
+        </h2>
+        <p className="mb-4 text-xs text-blastoff-text-secondary">
+          Updates as you type. This is how your token will appear across BLASTOFF once it&apos;s created and launched.
+        </p>
+
+        {/* Identity */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center bg-blastoff-orange/20 text-lg font-bold text-blastoff-orange">
+            {previewInitial}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display text-base font-semibold text-blastoff-text">
+                {previewSymbol}
+              </span>
+              <span className="text-xs text-blastoff-text-secondary">
+                {previewName}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.16em] text-blastoff-text-muted">
+              Fair launch on Base
+            </p>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="mb-4 grid grid-cols-2 gap-px border border-blastoff-separator bg-blastoff-border/40">
+          <div className="bg-blastoff-surface px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-blastoff-text-muted">Supply</p>
+            <p className="font-mono text-sm text-blastoff-text">
+              {previewSupply}
+            </p>
+          </div>
+          <div className="bg-blastoff-surface px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-blastoff-text-muted">Decimals</p>
+            <p className="font-mono text-sm text-blastoff-text">
+              {previewDecimals}
+            </p>
+          </div>
+        </div>
+
+        {/* Links summary */}
+        <div className="space-y-1.5 text-xs">
+          <div className="flex justify-between">
+            <span className="text-blastoff-text-secondary">Website</span>
+            <span className="max-w-[60%] truncate text-blastoff-text">
+              {website || 'Add a website URL'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-blastoff-text-secondary">Twitter</span>
+            <span className="max-w-[60%] truncate text-blastoff-text">
+              {twitter || '@handle'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-blastoff-text-secondary">Telegram</span>
+            <span className="max-w-[60%] truncate text-blastoff-text">
+              {telegram || '@channel'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Launch flow – fills preview column */}
+      <div className="mt-4 min-h-[220px] border border-blastoff-border bg-blastoff-bg/60 px-4 py-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-blastoff-text-muted">
+          Launch flow
+        </p>
+        <div className="mt-3 space-y-3 text-xs text-blastoff-text-secondary">
+          <div className="flex gap-3">
+            <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-blastoff-orange/20 text-[11px] font-semibold text-blastoff-orange">
+              1
+            </div>
+            <div>
+              <p className="font-medium text-blastoff-text">Create token</p>
+              <p className="mt-0.5 text-[11px]">
+                Deploy your ERC-20 on Base with fixed supply and metadata.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-blastoff-border text-[11px] font-semibold text-blastoff-text">
+              2
+            </div>
+            <div>
+              <p className="font-medium text-blastoff-text">Set launch</p>
+              <p className="mt-0.5 text-[11px]">
+                Choose Uniswap or Aerodrome, set initial price and WETH liquidity.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-blastoff-border text-[11px] font-semibold text-blastoff-text">
+              3
+            </div>
+            <div>
+              <p className="font-medium text-blastoff-text">Go live</p>
+              <p className="mt-0.5 text-[11px]">
+                Launch to the DEX and share your token page with holders.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      </>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-5xl">
         <Link
           href="/app"
           className="mb-6 inline-flex items-center gap-2 text-sm text-blastoff-text-secondary transition-colors hover:text-blastoff-text"
@@ -253,21 +375,56 @@ export default function CreateTokenPage() {
           Back to launches
         </Link>
 
-        <div className="border border-blastoff-border bg-blastoff-surface p-6 sm:p-8">
-          <h1 className="font-display text-2xl font-bold text-blastoff-text sm:text-3xl">Create Token</h1>
-          <p className="mt-1 text-sm text-blastoff-text-secondary">
-            Deploy a fair-launch token on Base. No presales—tokens go straight to bonding curve then DEX.
-          </p>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          {/* Left: form */}
+          <div className="border border-blastoff-separator bg-blastoff-surface p-6 sm:p-8">
+            <h1 className="font-display text-2xl font-bold text-blastoff-text sm:text-3xl">Create Token</h1>
+            <p className="mt-1 text-sm text-blastoff-text-secondary">
+              Deploy a fair-launch token on Base. No presales—tokens go straight to bonding curve then DEX.
+            </p>
 
-          {!isConnected && (
-            <div className="mt-6 border border-blastoff-border bg-blastoff-bg p-4">
-              <p className="text-sm text-blastoff-text-secondary">
-                Connect your wallet to create a token.
-              </p>
+            {/* Step flow with arrows */}
+            <div className="mt-5 flex items-center justify-between gap-3 rounded border border-blastoff-border bg-blastoff-bg/60 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-white/80">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blastoff-orange text-[10px] text-white">
+                  1
+                </div>
+                <span className="text-[10px] sm:text-[11px]">Token details</span>
+              </div>
+              <div className="flex items-center justify-center text-blastoff-border">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <div className="flex items-center gap-2 text-white/70">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-blastoff-border text-[10px]">
+                  2
+                </div>
+                <span className="hidden sm:inline">Socials</span>
+              </div>
+              <div className="flex items-center justify-center text-blastoff-border">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <div className="flex items-center gap-2 text-white/40">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-blastoff-border text-[10px]">
+                  3
+                </div>
+                <span className="hidden sm:inline">Launch</span>
+              </div>
             </div>
-          )}
 
-          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            {!isConnected && (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border border-blastoff-separator bg-blastoff-bg p-4">
+                <p className="text-sm text-blastoff-text-secondary">
+                  Connect your wallet to create a token.
+                </p>
+                <WalletButton />
+              </div>
+            )}
+
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-blastoff-text-secondary">
                 Name <span className="text-red-500">*</span>
@@ -308,6 +465,7 @@ export default function CreateTokenPage() {
                 className={inputClass('supply')}
                 placeholder="1000000000"
                 min={1}
+                readOnly
               />
               {getFieldError('supply') && <p className="mt-1 text-xs text-red-500">{getFieldError('supply')}</p>}
             </div>
@@ -324,6 +482,7 @@ export default function CreateTokenPage() {
                 placeholder="18"
                 min={0}
                 max={18}
+                readOnly
               />
               {getFieldError('decimals') && <p className="mt-1 text-xs text-red-500">{getFieldError('decimals')}</p>}
             </div>
@@ -371,30 +530,41 @@ export default function CreateTokenPage() {
               />
               {getFieldError('discord') && <p className="mt-1 text-xs text-red-500">{getFieldError('discord')}</p>}
             </div>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Link
+                href="/app"
+                className="inline-flex justify-center border border-blastoff-separator bg-blastoff-bg px-4 py-2.5 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:opacity-50"
+              >
+                Cancel
+              </Link>
+              <button
+                onClick={onCreate}
+                disabled={!canSubmit || isCreating}
+                className="inline-flex items-center justify-center gap-2 bg-blastoff-orange px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted"
+              >
+                {isCreating ? (
+                  <>
+                    <ButtonSpinner />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Token'
+                )}
+              </button>
+            </div>
           </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Link
-              href="/app"
-              className="inline-flex justify-center border border-blastoff-border bg-blastoff-bg px-4 py-2.5 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:opacity-50"
-            >
-              Cancel
-            </Link>
-            <button
-              onClick={onCreate}
-              disabled={!canSubmit || isCreating}
-              className="inline-flex items-center justify-center gap-2 bg-blastoff-orange px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light disabled:cursor-not-allowed disabled:bg-blastoff-border disabled:text-blastoff-text-muted"
-            >
-              {isCreating ? (
-                <>
-                  <ButtonSpinner />
-                  Creating...
-                </>
-              ) : (
-                'Create Token'
-              )}
-            </button>
+          {/* Right: desktop preview */}
+          <div className="hidden lg:block">
+            <PreviewCard />
           </div>
+        </div>
+
+        {/* Mobile preview */}
+        <div className="mt-6 lg:hidden">
+          <PreviewCard />
         </div>
       </div>
     </div>

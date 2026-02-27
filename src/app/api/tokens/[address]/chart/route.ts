@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAddress } from 'viem';
 import { getTokenTrades, aggregateToCandles, getTokenPrice, getTokenICOStats } from '@/lib/chainUtils';
-import { DEFAULT_CHAIN_ID } from '@/config/contracts';
+import { DEFAULT_CHAIN_ID, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
 
 export const runtime = 'nodejs';
 
@@ -22,8 +22,8 @@ export async function GET(
     const chainIdParam = url.searchParams.get('chainId');
     const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
 
-    // Fetch enough trades for all timeframes (1m needs more for density)
-    const trades = await getTokenTrades(tokenAddress, chainId, 500);
+    // Fetch enough trades for all timeframes (1m needs more for density, but keep this modest for speed)
+    const trades = await getTokenTrades(tokenAddress, chainId, 150);
 
     // Get ICO stats for current price
     const icoStats = await getTokenICOStats(tokenAddress, chainId);
@@ -36,7 +36,7 @@ export async function GET(
       // If there's collateral raised, we have buys but couldn't detect individual trades
       // Show a single candle at current price to indicate there IS activity
       if (icoStats.collateralRaised > 0) {
-        const startPrice = 0.00003; // Initial bonding curve price
+        const startPrice = DEFAULT_INITIAL_PRICE; // Initial bonding curve price
         
         return NextResponse.json({ 
           candles: [{
@@ -84,7 +84,7 @@ export async function GET(
     });
   } catch (err) {
     console.error('Error fetching chart data:', err);
-    let fallbackPrice = 0.00003;
+    let fallbackPrice = DEFAULT_INITIAL_PRICE;
     const tokenAddress = params?.address;
     if (tokenAddress && isAddress(tokenAddress)) {
       try {
@@ -92,7 +92,7 @@ export async function GET(
         const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
         fallbackPrice = await getTokenPrice(tokenAddress as `0x${string}`, chainId);
       } catch {
-        // keep 0.00003
+        // keep default
       }
     }
     return NextResponse.json({

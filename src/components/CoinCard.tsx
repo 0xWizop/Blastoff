@@ -110,7 +110,7 @@ export function CoinCard({ token }: CoinCardProps) {
         )}
       </div>
 
-      {/* Stats Grid – same sources as token page (ICO + trades + holders) */}
+      {/* Stats Grid – lightweight homepage view (ICO + trades). Full stats live on token page. */}
       <div className="mb-3 grid grid-cols-2 gap-2 sm:mb-4 sm:gap-3">
         <div className="bg-blastoff-bg p-2.5 sm:p-3">
           <p className="text-[10px] text-blastoff-text-muted sm:text-xs">Market Cap</p>
@@ -136,9 +136,9 @@ export function CoinCard({ token }: CoinCardProps) {
             {(token.priceChange24h || 0) >= 0 ? '+' : ''}{(token.priceChange24h || 0).toFixed(2)}%
           </p>
         </div>
-        {(token.holders != null || token.txCount24h != null) && (
+        {(token.holders ?? 0) > 0 || (token.txCount24h ?? 0) > 0 ? (
           <>
-            {token.holders != null && (
+            {(token.holders ?? 0) > 0 && (
               <div className="bg-blastoff-bg p-2.5 sm:p-3">
                 <p className="text-[10px] text-blastoff-text-muted sm:text-xs">Holders</p>
                 <p className="font-mono text-xs text-blastoff-text sm:text-sm">
@@ -146,7 +146,7 @@ export function CoinCard({ token }: CoinCardProps) {
                 </p>
               </div>
             )}
-            {token.txCount24h != null && (
+            {(token.txCount24h ?? 0) > 0 && (
               <div className="bg-blastoff-bg p-2.5 sm:p-3">
                 <p className="text-[10px] text-blastoff-text-muted sm:text-xs">Txns 24h</p>
                 <p className="font-mono text-xs text-blastoff-text sm:text-sm">
@@ -155,7 +155,7 @@ export function CoinCard({ token }: CoinCardProps) {
               </div>
             )}
           </>
-        )}
+        ) : null}
       </div>
 
       {/* Footer */}

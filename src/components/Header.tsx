@@ -6,11 +6,16 @@ import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/store/useAppStore';
 import { WalletButton } from './WalletButton';
 import { NetworkBadge } from './NetworkBadge';
+import { DocsHeader } from './DocsHeader';
 
 export function Header() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/docs')) {
+    return <DocsHeader />;
+  }
+
   const { openModal } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -29,31 +34,55 @@ export function Header() {
     };
   }, [mobileMenuOpen]);
 
-  return (
-    <header className="sticky top-0 z-50 w-full bg-blastoff-bg/95 backdrop-blur-sm">
-      <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:h-16">
-        <Link href="/app" className="flex items-center gap-2">
-          <span className="font-logo text-xl tracking-[0.08em] text-blastoff-orange sm:text-2xl">
-            BLASTOFF
-          </span>
-        </Link>
+  const navBoxClass =
+    'border-r border-blastoff-separator flex h-full min-h-0 items-stretch';
+  const navTextClass =
+    'text-[11px] font-medium uppercase tracking-[0.2em] text-white';
 
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-3 sm:flex">
-          <Link
-            href="/docs"
-            className="text-sm font-medium text-blastoff-text-secondary transition-colors hover:text-blastoff-orange"
-          >
-            Docs
-          </Link>
-          <Link
-            href="/create"
-            className="border border-blastoff-border bg-blastoff-surface px-4 py-2 text-sm font-medium text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-text h-[38px] inline-flex items-center"
-          >
-            Create Token
+  return (
+    <header className="sticky top-0 z-50 w-full bg-blastoff-bg/70 backdrop-blur-md">
+      <div className="container mx-auto flex h-14 items-center justify-between gap-6 px-4 sm:h-16">
+        {/* Logo + Network */}
+        <div className="flex min-w-0 flex-shrink-0 items-center gap-4">
+          <Link href="/app" className="flex items-center gap-2">
+            <span className="font-logo text-xl font-medium uppercase tracking-[0.12em] text-blastoff-orange sm:text-2xl">
+              BLASTOFF
+            </span>
           </Link>
           <NetworkBadge />
-          <WalletButton />
+        </div>
+
+        {/* Desktop: embedded button-style cells; active page highlighted orange */}
+        <nav className="hidden h-14 flex-1 items-stretch justify-end sm:flex sm:h-16">
+          <div className="flex h-full items-stretch border-l border-blastoff-separator">
+            <Link
+              href="/app"
+              className={`${navBoxClass} min-w-0 flex-1 transition-colors hover:bg-blastoff-orange ${pathname === '/app' ? 'bg-blastoff-orange' : ''}`}
+            >
+              <span className={`${navTextClass} flex h-full w-full items-center justify-center px-5`}>
+                Explore
+              </span>
+            </Link>
+            <Link
+              href="/docs"
+              className={`${navBoxClass} min-w-0 flex-1 transition-colors hover:bg-blastoff-orange ${pathname?.startsWith('/docs') ? 'bg-blastoff-orange' : ''}`}
+            >
+              <span className={`${navTextClass} flex h-full w-full items-center justify-center px-5`}>
+                Docs
+              </span>
+            </Link>
+            <Link
+              href="/create"
+              className={`${navBoxClass} min-w-0 flex-1 transition-colors ${pathname === '/create' ? 'bg-blastoff-orange hover:bg-blastoff-orange-light' : 'hover:bg-blastoff-orange'}`}
+            >
+              <span className={`${navTextClass} flex h-full w-full items-center justify-center px-5`}>
+                Launch
+              </span>
+            </Link>
+            <div className={`${navBoxClass} min-w-0 max-w-[7.5rem] flex-1 overflow-hidden`}>
+              <WalletButton embedded />
+            </div>
+          </div>
         </nav>
 
         {/* Mobile Navigation */}
@@ -86,6 +115,8 @@ export function Header() {
           </button>
         </div>
       </div>
+      {/* Header separator - same 1px as app separators */}
+      <div className="h-px w-full bg-blastoff-separator" aria-hidden />
 
       {/* Mobile Menu Overlay */}
       <div
@@ -124,7 +155,7 @@ export function Header() {
               href="/docs"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-3 py-3 text-left transition-colors active:bg-blastoff-border ${
-                pathname === '/docs'
+                pathname?.startsWith('/docs')
                   ? 'text-blastoff-orange'
                   : 'text-blastoff-text-secondary'
               }`}
@@ -147,7 +178,7 @@ export function Header() {
             </Link>
 
             {/* Divider */}
-            <div className="my-2 border-t border-blastoff-border" />
+            <div className="my-2 border-t border-blastoff-separator" />
 
             {/* Network Info */}
             <div className="flex items-center justify-between px-3 py-2">

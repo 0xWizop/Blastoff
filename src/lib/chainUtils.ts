@@ -1,7 +1,7 @@
 import { createPublicClient, http, formatUnits, parseAbi, decodeFunctionData, type Address, type Log } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { erc20Abi, uniswapV2PairAbi, uniswapV2FactoryAbi, tokenFactoryAbi } from './abis';
-import { getChainConfig, getContracts } from '@/config/contracts';
+import { getChainConfig, getContracts, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
 
 // Base Sepolia (and many RPCs) limit eth_getLogs to 10,000 blocks per request
 const RPC_MAX_BLOCK_RANGE = 10_000n;
@@ -265,7 +265,7 @@ export async function calculateTokenPrice(
 ): Promise<number> {
   const client = getClient(chainId);
   const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
-  if (!factoryAddress) return 0.00003;
+  if (!factoryAddress) return DEFAULT_INITIAL_PRICE;
 
   try {
     const testAmount = BigInt(1e18); // 1 token
@@ -281,7 +281,7 @@ export async function calculateTokenPrice(
     return price;
   } catch (error) {
     console.error('Error calculating token price:', error);
-    return 0.00003; // Default ICO starting price
+    return DEFAULT_INITIAL_PRICE; // Default ICO starting price
   }
 }
 
@@ -346,7 +346,7 @@ export async function getTokenICOStats(
       collateralRaised: 0,
       fundingGoal: FUNDING_GOAL,
       fundingProgress: 0,
-      currentPrice: 0.00003,
+      currentPrice: DEFAULT_INITIAL_PRICE,
       tokensSold: 0,
       tokensRemaining: INITIAL_MINT,
     };
@@ -366,9 +366,11 @@ export interface TokenLiveStats {
 const DEFAULT_SUPPLY = 1e9;
 
 /**
- * Get live on-chain stats for a token (same logic as /api/tokens/[address] and chart page).
- * Used by homepage list and trending so cards match token page data.
- * @param tradesLimit - lower = faster (e.g. 60 for list, 200 for single token)
+ * Get lightweight live stats for a token (for homepage list, trending, top movers).
+ * Uses ICO + recent trades ONLY. Holder scan is intentionally skipped here because
+ * it requires a very large getLogs window and makes the homepage slow.
+ *
+ * @param tradesLimit - lower = faster (e.g. 40–80 for list, 200 for single token)
  */
 export async function getTokenLiveStats(
   tokenAddress: Address,
@@ -377,10 +379,9 @@ export async function getTokenLiveStats(
   tradesLimit: number = 200
 ): Promise<TokenLiveStats> {
   try {
-    const [icoStats, trades, holdersData] = await Promise.all([
+    const [icoStats, trades] = await Promise.all([
       getTokenICOStats(tokenAddress, chainId),
       getTokenTrades(tokenAddress, chainId, tradesLimit),
-      getTokenHolders(tokenAddress, chainId, 10).catch(() => ({ holders: [], totalHolders: 0 })),
     ]);
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
@@ -404,7 +405,8 @@ export async function getTokenLiveStats(
       volume24h,
       priceChange24h,
       txCount24h: trades24h.length,
-      holders: holdersData.totalHolders,
+      // Holder count is populated only on the token page, not for list/trending
+      holders: 0,
     };
   } catch (e) {
     return {
@@ -519,7 +521,8 @@ export async function getTokenFactoryBuys(
   const trades: Trade[] = [];
   try {
     const currentBlock = await client.getBlockNumber();
-    const fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n;
+    // Look back a modest window for buys; keeps getLogs fast on dev RPCs
+    const fromBlock = currentBlock > 20000n ? currentBlock - 20000n : 0n;
 
     const logs = await getLogsChunked(client, {
       address: tokenAddress,
@@ -560,7 +563,7 @@ export async function getTokenFactoryBuys(
         
         // Get ETH value from the transaction
         const ethValue = Number(formatUnits(tx.value, 18));
-        const price = amount > 0 && ethValue > 0 ? ethValue / amount : 0.00003;
+        const price = amount > 0 && ethValue > 0 ? ethValue / amount : DEFAULT_INITIAL_PRICE;
         
         trades.push({
           id: `${log.transactionHash}-${log.logIndex}`,
@@ -613,7 +616,7 @@ export async function getTokenFactoryBuys(
               const amountHex = '0x' + inputData.slice(64, 128);
               const amount = Number(formatUnits(BigInt(amountHex), decimals));
               const ethValue = Number(formatUnits(tx.value, 18));
-              const price = amount > 0 && ethValue > 0 ? ethValue / amount : 0.00003;
+              const price = amount > 0 && ethValue > 0 ? ethValue / amount : DEFAULT_INITIAL_PRICE;
               
               trades.push({
                 id: `${log.transactionHash}-buy`,
@@ -675,7 +678,8 @@ export async function getTokenFactorySells(
   const trades: Trade[] = [];
   try {
     const currentBlock = await client.getBlockNumber();
-    const fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n;
+    // Same shallow window for sells as buys
+    const fromBlock = currentBlock > 20000n ? currentBlock - 20000n : 0n;
 
     const logs = await getLogsChunked(client, {
       address: tokenAddress,
@@ -697,14 +701,14 @@ export async function getTokenFactorySells(
     }
 
     // Price estimate for sells: bonding curve goes down on sell, so use a slight discount so candles show red
-    let sellPriceEstimate = 0.00003;
+    let sellPriceEstimate = DEFAULT_INITIAL_PRICE;
     try {
       const icoStats = await getTokenICOStats(tokenAddress, chainId);
       if (icoStats.currentPrice > 0) sellPriceEstimate = icoStats.currentPrice * 0.98;
     } catch {
       // keep default
     }
-    if (sellPriceEstimate <= 0) sellPriceEstimate = 0.00003;
+    if (sellPriceEstimate <= 0) sellPriceEstimate = DEFAULT_INITIAL_PRICE;
 
     for (const log of logs) {
       const args = log.args as { from?: Address; to?: Address; value?: bigint };
@@ -1089,5 +1093,5 @@ export async function getTokenPrice(
   }
   
   // Default starting price
-  return 0.00003;
+  return DEFAULT_INITIAL_PRICE;
 }

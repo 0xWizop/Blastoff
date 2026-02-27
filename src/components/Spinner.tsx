@@ -33,9 +33,9 @@ export function Spinner({ size = 'sm', color = 'orange', className = '' }: Spinn
 
 export function FullPageLoader() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-blastoff-bg">
-      <Spinner size="xl" />
-      <p className="animate-pulse text-sm text-blastoff-text-secondary">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-5 bg-transparent">
+      <Spinner size="xl" color="orange" />
+      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-blastoff-text-muted">
         Loading...
       </p>
     </div>

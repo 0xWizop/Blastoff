@@ -4,7 +4,7 @@ import React from 'react';
 
 export function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="rounded border border-blastoff-border bg-blastoff-surface px-1.5 py-0.5 font-mono text-sm text-blastoff-orange">
+    <code className="rounded border border-blastoff-border bg-blastoff-bg px-1.5 py-0.5 font-mono text-sm text-blastoff-orange">
       {children}
     </code>
   );
@@ -12,7 +12,7 @@ export function Code({ children }: { children: React.ReactNode }) {
 
 export function Pre({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="overflow-x-auto rounded border border-blastoff-border bg-blastoff-surface p-3 font-mono text-sm text-blastoff-text-secondary">
+    <pre className="overflow-x-auto rounded border border-blastoff-border bg-blastoff-bg p-4 font-mono text-sm leading-relaxed text-blastoff-text-secondary">
       {children}
     </pre>
   );
@@ -40,7 +40,7 @@ export const Icons = {
     </svg>
   ),
   Image: () => (
-    <svg className="h-8 w-8 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="h-8 w-8 shrink-0 text-blastoff-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
     </svg>
   ),
@@ -50,18 +50,40 @@ export function MockImage({ label, aspectRatio = 'video' }: { label: string; asp
   const ratio = aspectRatio === 'video' ? 'aspect-video' : 'aspect-[2/1]';
   return (
     <div
-      className={`${ratio} w-full rounded border-2 border-dashed border-blastoff-border bg-blastoff-surface flex flex-col items-center justify-center gap-1.5 text-blastoff-text-muted`}
+      className={`${ratio} flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-blastoff-border bg-blastoff-bg`}
     >
       <Icons.Image />
-      <span className="text-xs font-medium">{label}</span>
+      <span className="text-xs font-medium text-blastoff-text-muted">{label}</span>
     </div>
   );
 }
 
-export function SectionTitle({ icon: Icon, children }: { icon: React.ComponentType; children: React.ReactNode }) {
+/** Wraps a doc section in its own container (separate from other blocks). */
+export function DocBlock({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <h2 className="flex items-center gap-2 border-b border-blastoff-border pb-1.5 text-lg font-semibold text-blastoff-text">
-      <span className="text-blastoff-orange"><Icon /></span>
+    <div className={`rounded-lg border border-blastoff-border bg-blastoff-surface p-5 sm:p-6 ${className ?? ''}`}>
+      {children}
+    </div>
+  );
+}
+
+export function SectionTitle({
+  id,
+  icon: Icon,
+  children,
+}: {
+  id?: string;
+  icon: React.ComponentType;
+  children: React.ReactNode;
+}) {
+  return (
+    <h2
+      id={id}
+      className="scroll-mt-24 flex items-center gap-2 border-b border-blastoff-border pb-2 text-lg font-semibold text-blastoff-text sm:text-xl"
+    >
+      <span className="text-blastoff-orange">
+        <Icon />
+      </span>
       {children}
     </h2>
   );
@@ -79,19 +101,23 @@ export function ApiEndpoint({
   response?: string;
 }) {
   return (
-    <div className="rounded border border-blastoff-border bg-blastoff-surface p-3">
+    <div className="rounded-lg border border-blastoff-border bg-blastoff-bg p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-            method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blastoff-orange text-blastoff-bg'
+          className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+            method === 'GET' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blastoff-orange/20 text-blastoff-orange'
           }`}
         >
           {method}
         </span>
-        <code className="font-mono text-xs text-blastoff-orange">{path}</code>
+        <code className="break-all font-mono text-sm text-blastoff-orange">{path}</code>
       </div>
-      <p className="mt-1.5 text-xs text-blastoff-text-secondary">{desc}</p>
-      {response && <Pre className="mt-2 text-xs">{response}</Pre>}
+      <p className="mt-2 text-sm text-blastoff-text-secondary">{desc}</p>
+      {response && (
+        <pre className="mt-2 overflow-x-auto rounded border border-blastoff-border bg-blastoff-bg p-3 font-mono text-xs text-blastoff-text-muted">
+          {response}
+        </pre>
+      )}
     </div>
   );
 }

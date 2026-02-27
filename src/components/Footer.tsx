@@ -11,7 +11,7 @@ export function Footer() {
   ] as const;
 
   return (
-    <footer className="border-t border-blastoff-border bg-blastoff-bg safe-area-bottom">
+    <footer className="border-t border-blastoff-separator bg-blastoff-bg safe-area-bottom">
       <div className="container mx-auto flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-6">
         <div className="text-center sm:text-left">
           <div className="font-logo text-lg tracking-[0.08em] text-blastoff-orange sm:text-xl">BLASTOFF</div>

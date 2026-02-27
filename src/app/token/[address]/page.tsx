@@ -104,50 +104,48 @@ export default function TokenPage() {
 
   return (
     <div className="container mx-auto flex min-h-[calc(100vh-3.5rem)] flex-col px-4 py-3 sm:min-h-[calc(100vh-4rem)] sm:py-4 lg:h-[calc(100vh-4rem)] lg:overflow-hidden">
-      {/* Compact Header Bar */}
-      <div className="shrink-0 mb-3 flex items-center justify-between">
+      {/* Back / Actions bar - header-style, single separator between items */}
+      <div className="mb-3 flex items-stretch overflow-hidden border border-blastoff-separator bg-blastoff-surface divide-x divide-blastoff-separator">
         <Link
           href="/app"
-          className="inline-flex items-center gap-1.5 text-sm text-blastoff-text-secondary transition-colors active:text-blastoff-text sm:hover:text-blastoff-text"
+          className="flex h-10 items-center gap-2 px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-white/90 transition-colors hover:bg-blastoff-orange"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </Link>
-        
-        {/* Quick Actions */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={copyAddress}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-blastoff-text-secondary hover:text-blastoff-orange transition-colors border border-blastoff-border bg-blastoff-surface"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            Copy CA
-          </button>
-          <button
-            onClick={() => setShowShareCard(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-blastoff-orange text-white hover:bg-blastoff-orange-light transition-colors"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Share
-          </button>
-          <a
-            href={`https://basescan.org/address/${address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-8 w-8 items-center justify-center border border-blastoff-border bg-blastoff-surface text-blastoff-text-secondary transition-all hover:border-blastoff-orange hover:text-blastoff-orange"
-            title="View on BaseScan"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
+        <button
+          type="button"
+          onClick={copyAddress}
+          className="flex h-10 items-center gap-2 px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-white/90 transition-colors hover:bg-blastoff-orange"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Copy CA
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowShareCard(true)}
+          className="flex h-10 items-center gap-2 bg-blastoff-orange px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-white transition-colors hover:bg-blastoff-orange-light"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+          Share
+        </button>
+        <a
+          href={`https://basescan.org/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-10 w-10 shrink-0 items-center justify-center text-white/90 transition-colors hover:bg-blastoff-orange"
+          title="View on BaseScan"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
       </div>
 
       {/* Share Card Modal */}
@@ -239,65 +237,43 @@ export default function TokenPage() {
             <p className="shrink-0 text-xs text-blastoff-text-secondary px-1">{token.description}</p>
           )}
 
-          {/* Chart/Trades/Chat/Holders Tabs + Content */}
-          <div className="flex-1 flex flex-col min-h-0 border border-blastoff-border bg-blastoff-surface">
-            {/* Tabs */}
-            <div className="shrink-0 flex border-b border-blastoff-border overflow-x-auto">
-              <button
-                onClick={() => setActiveTab('chart')}
-                className={`relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'chart' ? 'text-blastoff-orange bg-blastoff-bg' : 'text-blastoff-text-secondary hover:text-blastoff-text'
-                }`}
-              >
-                Chart
-                {activeTab === 'chart' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blastoff-orange" />}
-              </button>
-              <button
-                onClick={() => setActiveTab('trades')}
-                className={`relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'trades' ? 'text-blastoff-orange bg-blastoff-bg' : 'text-blastoff-text-secondary hover:text-blastoff-text'
-                }`}
-              >
-                Trades
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
-                </span>
-                {activeTab === 'trades' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blastoff-orange" />}
-              </button>
-              <button
-                onClick={() => setActiveTab('chat')}
-                className={`relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'chat' ? 'text-blastoff-orange bg-blastoff-bg' : 'text-blastoff-text-secondary hover:text-blastoff-text'
-                }`}
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                Chat
-                {activeTab === 'chat' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blastoff-orange" />}
-              </button>
-              <button
-                onClick={() => setActiveTab('holders')}
-                className={`relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'holders' ? 'text-blastoff-orange bg-blastoff-bg' : 'text-blastoff-text-secondary hover:text-blastoff-text'
-                }`}
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Holders
-                {activeTab === 'holders' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blastoff-orange" />}
-              </button>
-              <button
-                onClick={() => setActiveTab('info')}
-                className={`relative px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'info' ? 'text-blastoff-orange bg-blastoff-bg' : 'text-blastoff-text-secondary hover:text-blastoff-text'
-                }`}
-              >
-                Info
-                {activeTab === 'info' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blastoff-orange" />}
-              </button>
+          {/* Chart/Trades/Chat/Holders Tabs + Content - header-style, single separator */}
+          <div className="flex-1 flex flex-col min-h-0 border border-blastoff-separator bg-blastoff-surface">
+            <div className="shrink-0 flex items-stretch overflow-x-auto divide-x divide-blastoff-separator">
+              {[
+                { id: 'chart' as const, label: 'Chart' },
+                { id: 'trades' as const, label: 'Trades' },
+                { id: 'chat' as const, label: 'Chat' },
+                { id: 'holders' as const, label: 'Holders' },
+                { id: 'info' as const, label: 'Info' },
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  className={`flex h-10 shrink-0 items-center justify-center gap-1.5 border-r border-white/20 px-4 text-[11px] font-medium uppercase tracking-[0.2em] transition-colors whitespace-nowrap ${
+                    activeTab === id ? 'bg-blastoff-orange text-white' : 'text-white/90 hover:bg-blastoff-orange'
+                  }`}
+                >
+                  {id === 'trades' && (
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                    </span>
+                  )}
+                  {id === 'chat' && (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  )}
+                  {id === 'holders' && (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                  {label}
+                </button>
+              ))}
             </div>
 
             {/* Tab Content */}

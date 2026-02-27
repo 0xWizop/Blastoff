@@ -11,7 +11,8 @@ import { Spinner } from './Spinner';
 // Base chain logo
 const BASE_LOGO = 'https://i.imgur.com/mOH2omk.png';
 
-function shortenAddress(address: string): string {
+function shortenAddress(address: string, compact = false): string {
+  if (compact) return `${address.slice(0, 5)}…${address.slice(-3)}`;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
@@ -111,7 +112,10 @@ const WalletIcon = ({ name }: { name: string }) => {
   );
 };
 
-export function WalletButton() {
+const embeddedCellClass =
+  'flex h-full min-w-0 w-full max-w-full items-center justify-center overflow-hidden px-4 bg-transparent text-[11px] font-medium uppercase tracking-[0.2em] text-white transition-colors hover:bg-blastoff-orange';
+
+export function WalletButton({ embedded = false }: { embedded?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { connect, connectors, isPending, error: connectError } = useConnect();
@@ -213,6 +217,9 @@ export function WalletButton() {
 
   // Avoid setState during Wagmi Hydrate render: render placeholder until mounted
   if (!mounted) {
+    if (embedded) {
+      return <span className={embeddedCellClass}>Connect Wallet</span>;
+    }
     return (
       <button
         className="bg-blastoff-orange px-4 py-2 text-sm font-medium text-white h-[38px] opacity-70"
@@ -225,6 +232,9 @@ export function WalletButton() {
 
   // Show loading state during connection/reconnection
   if (isConnecting || isReconnecting) {
+    if (embedded) {
+      return <span className={embeddedCellClass}>Connecting…</span>;
+    }
     return (
       <button
         disabled
@@ -238,21 +248,29 @@ export function WalletButton() {
 
   // Connected state
   if (isConnected && address) {
+    const triggerClass = embedded
+      ? `${embeddedCellClass} cursor-pointer font-mono`
+      : `flex items-center gap-2 bg-blastoff-surface px-3 py-2 text-sm font-medium text-blastoff-text transition-all hover:bg-blastoff-border border h-[38px] ${isUnsupportedNetwork ? 'border-blastoff-error' : 'border-blastoff-border'}`;
+
     return (
       <>
-        <div className="relative">
+        <div className={embedded ? 'relative min-w-0 w-full overflow-hidden' : 'relative'}>
           <button
             onClick={() => {
               setShowDropdown(!showDropdown);
               setShowNetworkMenu(false);
             }}
-            className={`flex items-center gap-2 bg-blastoff-surface px-3 py-2 text-sm font-medium text-blastoff-text transition-all hover:bg-blastoff-border border h-[38px] ${isUnsupportedNetwork ? 'border-blastoff-error' : 'border-blastoff-border'}`}
+            className={triggerClass}
           >
-            <NetworkIcon chainId={chainId} size={16} />
-            <span className="font-mono">{shortenAddress(address)}</span>
-            <svg className={`h-4 w-4 text-blastoff-text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            {!embedded && <NetworkIcon chainId={chainId} size={16} />}
+            <span className={embedded ? 'block min-w-0 truncate max-w-full' : ''} title={address}>
+              {embedded ? shortenAddress(address, true) : shortenAddress(address)}
+            </span>
+            {!embedded && (
+              <svg className={`h-4 w-4 text-blastoff-text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
           </button>
         </div>
 
@@ -363,14 +381,16 @@ export function WalletButton() {
   }
 
   // Not connected state
-  return (
-    <>
-      <button
-        onClick={() => openModal('walletConnect')}
-        className="bg-blastoff-orange px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light hover:shadow-glow-orange h-[38px]"
-      >
-        Connect Wallet
-      </button>
+  if (embedded) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => openModal('walletConnect')}
+          className={embeddedCellClass}
+        >
+          Connect Wallet
+        </button>
 
       {/* Wallet Connect Modal - below header, aligned right (near Swap panel Connect button) */}
       {openModals.walletConnect && (
@@ -449,6 +469,93 @@ export function WalletButton() {
             </div>
             
             {/* Footer */}
+            <div className="border-t border-blastoff-border p-4">
+              <p className="text-[10px] text-center text-blastoff-text-muted">
+                By connecting, you agree to the Terms of Service
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => openModal('walletConnect')}
+        className="bg-blastoff-orange px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blastoff-orange-light hover:shadow-glow-orange h-[38px]"
+      >
+        Connect Wallet
+      </button>
+
+      {openModals.walletConnect && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-end pt-14 sm:pt-16 p-4 pr-6 sm:pr-8 md:pr-12">
+          <div
+            className="absolute top-14 left-0 right-0 bottom-0 sm:top-16 bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.4)_6px,rgba(0,0,0,0.7)_100%)]"
+            onClick={() => {
+              closeModal('walletConnect');
+              setConnectingWallet(null);
+            }}
+          />
+          <div className="relative w-full max-w-sm border border-blastoff-border bg-blastoff-surface shadow-2xl">
+            <div className="flex items-center justify-between border-b border-blastoff-border p-4">
+              <h2 className="text-lg font-semibold text-blastoff-text">Connect Wallet</h2>
+              <button
+                onClick={() => {
+                  closeModal('walletConnect');
+                  setConnectingWallet(null);
+                }}
+                className="p-1 text-blastoff-text-muted hover:text-blastoff-text transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-xs text-blastoff-text-muted mb-3">
+                Choose your preferred wallet to connect to BLASTOFF
+              </p>
+              {connectors.map((connector) => {
+                const isConnecting = connectingWallet === connector.name && isPending;
+                return (
+                  <button
+                    key={connector.uid}
+                    onClick={() => handleConnect(connector)}
+                    disabled={isPending}
+                    className="flex w-full items-center gap-3 border border-blastoff-border bg-blastoff-bg p-3 text-left transition-all hover:border-blastoff-orange hover:bg-blastoff-surface disabled:opacity-50 disabled:cursor-not-allowed group"
+                  >
+                    <WalletIcon name={connector.name} />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blastoff-text group-hover:text-blastoff-orange transition-colors">
+                        {connector.name}
+                      </p>
+                      {connector.name.toLowerCase().includes('injected') && (
+                        <p className="text-[10px] text-blastoff-text-muted">Browser Extension</p>
+                      )}
+                      {connector.name.toLowerCase().includes('walletconnect') && (
+                        <p className="text-[10px] text-blastoff-text-muted">Mobile & Desktop</p>
+                      )}
+                      {connector.name.toLowerCase().includes('coinbase') && (
+                        <p className="text-[10px] text-blastoff-text-muted">Coinbase Wallet</p>
+                      )}
+                      {connector.name.toLowerCase().includes('safe') && (
+                        <p className="text-[10px] text-blastoff-text-muted">Multisig Wallet</p>
+                      )}
+                    </div>
+                    {isConnecting ? (
+                      <Spinner size="sm" color="orange" />
+                    ) : (
+                      <svg className="h-5 w-5 text-blastoff-text-muted group-hover:text-blastoff-orange transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <div className="border-t border-blastoff-border p-4">
               <p className="text-[10px] text-center text-blastoff-text-muted">
                 By connecting, you agree to the Terms of Service

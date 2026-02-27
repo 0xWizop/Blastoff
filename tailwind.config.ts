@@ -13,6 +13,8 @@ const config: Config = {
           bg: '#0a0a0a',
           surface: '#111111',
           border: '#1a1a1a',
+          /** Single separator/outline for dividers and borders app-wide (1px, no doubling) */
+          separator: 'rgba(255,255,255,0.12)',
           orange: '#ff6b00',
           'orange-dark': '#cc5500',
           'orange-light': '#ff8533',

@@ -98,7 +98,7 @@ export function LaunchTokenModal() {
   return (
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative mx-auto mt-16 w-[min(760px,calc(100vw-2rem))] border border-blastoff-border bg-blastoff-surface p-5">
+      <div className="relative mx-auto mt-16 w-[min(760px,calc(100vw-2rem))] border border-blastoff-separator bg-blastoff-surface p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-blastoff-text">Launch Token</h2>
           <button onClick={onClose} className="text-blastoff-text-secondary hover:text-blastoff-text">
@@ -109,12 +109,12 @@ export function LaunchTokenModal() {
         </div>
 
         {!isConnected && (
-          <div className="mb-4 border border-blastoff-border bg-blastoff-bg p-3">
+          <div className="mb-4 border border-blastoff-separator bg-blastoff-bg p-3">
             <p className="text-sm text-blastoff-text-secondary">Connect wallet to launch.</p>
           </div>
         )}
 
-        <div className="mb-4 border border-blastoff-border bg-blastoff-bg p-4">
+        <div className="mb-4 border border-blastoff-separator bg-blastoff-bg p-4">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-blastoff-text">{createdToken.name} ({createdToken.symbol})</div>
@@ -139,7 +139,7 @@ export function LaunchTokenModal() {
             <div className="flex gap-2">
               <button
                 onClick={() => update({ dex: 'AERODROME' })}
-                className={`flex-1 border border-blastoff-border px-4 py-2 text-sm font-medium transition-all ${
+                className={`flex-1 border border-blastoff-separator px-4 py-2 text-sm font-medium transition-all ${
                   draft.dex === 'AERODROME'
                     ? 'bg-blastoff-orange text-white'
                     : 'bg-blastoff-bg text-blastoff-text-secondary hover:text-blastoff-text'
@@ -149,7 +149,7 @@ export function LaunchTokenModal() {
               </button>
               <button
                 onClick={() => update({ dex: 'UNISWAP_V3' })}
-                className={`flex-1 border border-blastoff-border px-4 py-2 text-sm font-medium transition-all ${
+                className={`flex-1 border border-blastoff-separator px-4 py-2 text-sm font-medium transition-all ${
                   draft.dex === 'UNISWAP_V3'
                     ? 'bg-blastoff-orange text-white'
                     : 'bg-blastoff-bg text-blastoff-text-secondary hover:text-blastoff-text'
@@ -167,7 +167,7 @@ export function LaunchTokenModal() {
                 <button
                   key={opt}
                   onClick={() => update({ slippage: opt })}
-                  className={`flex-1 border border-blastoff-border py-2 text-sm font-medium transition-all ${
+                  className={`flex-1 border border-blastoff-separator py-2 text-sm font-medium transition-all ${
                     draft.slippage === opt
                       ? 'bg-blastoff-orange text-white'
                       : 'bg-blastoff-bg text-blastoff-text-secondary hover:text-blastoff-text'
@@ -185,7 +185,7 @@ export function LaunchTokenModal() {
               <select
                 value={draft.feeTier}
                 onChange={(e) => update({ feeTier: Number(e.target.value) as 500 | 3000 | 10000 })}
-                className="w-full border border-blastoff-border bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
+                className="w-full border border-blastoff-separator bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
               >
                 {feeTiers.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -202,7 +202,7 @@ export function LaunchTokenModal() {
               type="number"
               value={draft.initialPriceWeth}
               onChange={(e) => update({ initialPriceWeth: Number(e.target.value) })}
-              className="w-full border border-blastoff-border bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
+              className="w-full border border-blastoff-separator bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
               placeholder="0.000001"
             />
           </div>
@@ -213,20 +213,20 @@ export function LaunchTokenModal() {
               type="number"
               value={draft.wethLiquidity}
               onChange={(e) => update({ wethLiquidity: Number(e.target.value) })}
-              className="w-full border border-blastoff-border bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
+              className="w-full border border-blastoff-separator bg-blastoff-bg px-3 py-2 text-sm text-blastoff-text outline-none focus:border-blastoff-orange"
               placeholder="0.1"
             />
             <div className="mt-2 flex gap-2">
-              <button onClick={() => setPct(25)} className="flex-1 border border-blastoff-border bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
+              <button onClick={() => setPct(25)} className="flex-1 border border-blastoff-separator bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
                 25%
               </button>
-              <button onClick={() => setPct(50)} className="flex-1 border border-blastoff-border bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
+              <button onClick={() => setPct(50)} className="flex-1 border border-blastoff-separator bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
                 50%
               </button>
-              <button onClick={() => setPct(75)} className="flex-1 border border-blastoff-border bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
+              <button onClick={() => setPct(75)} className="flex-1 border border-blastoff-separator bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
                 75%
               </button>
-              <button onClick={() => setPct(100)} className="flex-1 border border-blastoff-border bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
+              <button onClick={() => setPct(100)} className="flex-1 border border-blastoff-separator bg-blastoff-bg py-2 text-xs text-blastoff-text-secondary hover:text-blastoff-text">
                 Max
               </button>
             </div>
@@ -237,7 +237,7 @@ export function LaunchTokenModal() {
           <button
             onClick={onClose}
             disabled={isLaunching}
-            className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:opacity-50"
+            className="border border-blastoff-separator bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:opacity-50"
           >
             Cancel
           </button>

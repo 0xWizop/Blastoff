@@ -1,3 +1,5 @@
+import { DEFAULT_INITIAL_MARKET_CAP, DEFAULT_INITIAL_PRICE, DEFAULT_TOTAL_SUPPLY } from '@/config/contracts';
+
 /**
  * Map Firestore TokenData document to frontend Token shape.
  * Shared by /api/tokens, /api/tokens/trending, and /api/tokens/[address].
@@ -12,6 +14,17 @@ export function mapTokenData(docId: string, data: FirebaseFirestore.DocumentData
     startTime = new Date(createdAt).getTime();
   }
 
+  // Derive sensible defaults so tokens without on-chain activity still show a launch price and mcap.
+  const totalSupply = (data.totalSupply as number | undefined) || DEFAULT_TOTAL_SUPPLY;
+  const basePrice =
+    (data.price as number | undefined) ||
+    (data.priceUsd as number | undefined) ||
+    DEFAULT_INITIAL_PRICE;
+  const baseMarketCap =
+    (data.marketCap as number | undefined) ||
+    (basePrice * totalSupply) ||
+    DEFAULT_INITIAL_MARKET_CAP;
+
   return {
     address: data.contractID && data.contractID !== 'error' ? data.contractID : docId,
     id: docId,
@@ -20,10 +33,10 @@ export function mapTokenData(docId: string, data: FirebaseFirestore.DocumentData
     logoUrl: data.image || '',
     description: data.description || '',
     creatorAddress: data.creatorAddress || data.account || null,
-    totalSupply: data.totalSupply || 0,
+    totalSupply,
     volume24h: data.volume || 0,
-    marketCap: data.marketCap || 0,
-    price: data.price || data.priceUsd || 0,
+    marketCap: baseMarketCap,
+    price: basePrice,
     priceChange24h: data.priceChange24h || data.change24h || 0,
     status: data.status || 'LIVE',
     createdAt,

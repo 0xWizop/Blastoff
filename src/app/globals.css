@@ -361,33 +361,35 @@ input[type='number'] {
   animation-delay: 1.2s;
 }
 
-/* Toast notification styles */
+/* Toast notification styles - dark surface, orange accent */
 [data-sonner-toaster] {
-  --normal-bg: #1a1a1a;
-  --normal-border: #2a2a2a;
-  --normal-text: #f0f0f0;
+  --normal-bg: #111111;
+  --normal-border: rgba(255, 255, 255, 0.1);
+  --normal-text: #ffffff;
   font-family: 'Space Grotesk', sans-serif !important;
 }
 
 [data-sonner-toast] {
-  border-radius: 0 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6) !important;
+  background: #111111 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 [data-sonner-toast][data-type="success"] {
-  border-left: 3px solid #22c55e !important;
+  border-left: 3px solid #ff6b00 !important;
 }
 
 [data-sonner-toast][data-type="error"] {
-  border-left: 3px solid #ef4444 !important;
+  border-left: 3px solid #ff3d00 !important;
 }
 
 [data-sonner-toast][data-type="info"] {
-  border-left: 3px solid #3b82f6 !important;
+  border-left: 3px solid #ff6b00 !important;
 }
 
 [data-sonner-toast][data-type="warning"] {
-  border-left: 3px solid #eab308 !important;
+  border-left: 3px solid #ffab00 !important;
 }
 
 [data-sonner-toast][data-type="loading"] {
@@ -396,6 +398,7 @@ input[type='number'] {
 
 [data-sonner-toast] [data-title] {
   font-weight: 600 !important;
+  color: #ffffff !important;
 }
 
 [data-sonner-toast] [data-description] {

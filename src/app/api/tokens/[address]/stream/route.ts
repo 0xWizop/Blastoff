@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createPublicClient, formatUnits, http, isAddress, parseAbi, type Address, type Log } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { tokenFactoryAbi, erc20Abi } from '@/lib/abis';
-import { getChainConfig, getContracts } from '@/config/contracts';
+import { getChainConfig, getContracts, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -163,7 +163,7 @@ export async function GET(
               const block = await client.getBlock({ blockNumber: log.blockNumber });
               const amount = Number(formatUnits(args.value || 0n, decimals));
               if (amount === 0) continue;
-              const price = 0.00003;
+              const price = DEFAULT_INITIAL_PRICE;
               const ethValue = amount * price;
               const trade: Trade = {
                 id: `${log.transactionHash}-${log.logIndex}`,
