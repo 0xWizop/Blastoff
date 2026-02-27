@@ -76,7 +76,7 @@ export function WelcomeOnboardingModal() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
 
-      <div className="relative w-[min(720px,100%)] border border-blastoff-border bg-blastoff-surface p-5">
+      <div className="relative w-[min(720px,100%)] border border-blastoff-separator bg-blastoff-surface p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-blastoff-text">
             {steps[stepIdx].title}
@@ -89,7 +89,7 @@ export function WelcomeOnboardingModal() {
           </button>
         </div>
 
-        <div className="border border-blastoff-border bg-blastoff-bg p-4">
+        <div className="border border-blastoff-separator bg-blastoff-bg p-4">
           <p className="text-sm leading-relaxed text-blastoff-text-secondary">{steps[stepIdx].body}</p>
         </div>
 
@@ -102,7 +102,7 @@ export function WelcomeOnboardingModal() {
                 className={`h-2.5 w-2.5 rounded-full border transition-all ${
                   i === stepIdx
                     ? 'border-blastoff-orange bg-blastoff-orange'
-                    : 'border-blastoff-border bg-blastoff-bg hover:border-blastoff-orange'
+                    : 'border-blastoff-separator bg-blastoff-bg hover:border-blastoff-orange'
                 }`}
                 aria-label={`Go to step ${i + 1}`}
               />
@@ -123,7 +123,7 @@ export function WelcomeOnboardingModal() {
         <div className="mt-5 flex items-center justify-between gap-3">
           <button
             onClick={onClose}
-            className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text"
+            className="border border-blastoff-separator bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text"
           >
             Skip
           </button>
@@ -132,7 +132,7 @@ export function WelcomeOnboardingModal() {
             <button
               onClick={onBack}
               disabled={stepIdx === 0}
-              className="border border-blastoff-border bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:cursor-not-allowed disabled:opacity-40"
+              className="border border-blastoff-separator bg-blastoff-bg px-4 py-2 text-sm text-blastoff-text-secondary transition-all hover:text-blastoff-text disabled:cursor-not-allowed disabled:opacity-40"
             >
               Back
             </button>

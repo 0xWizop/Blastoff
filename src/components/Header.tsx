@@ -6,11 +6,16 @@ import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/store/useAppStore';
 import { WalletButton } from './WalletButton';
 import { NetworkBadge } from './NetworkBadge';
+import { DocsHeader } from './DocsHeader';
 
 export function Header() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/docs')) {
+    return <DocsHeader />;
+  }
+
   const { openModal } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -29,10 +34,10 @@ export function Header() {
     };
   }, [mobileMenuOpen]);
 
-  const navTextClass =
-    'text-[11px] font-medium uppercase tracking-[0.2em] text-white';
   const navBoxClass =
     'border-r border-blastoff-separator flex h-full min-h-0 items-stretch';
+  const navTextClass =
+    'text-[11px] font-medium uppercase tracking-[0.2em] text-white';
 
   return (
     <header className="sticky top-0 z-50 w-full bg-blastoff-bg/70 backdrop-blur-md">
@@ -60,7 +65,7 @@ export function Header() {
             </Link>
             <Link
               href="/docs"
-              className={`${navBoxClass} min-w-0 flex-1 transition-colors hover:bg-blastoff-orange ${pathname === '/docs' ? 'bg-blastoff-orange' : ''}`}
+              className={`${navBoxClass} min-w-0 flex-1 transition-colors hover:bg-blastoff-orange ${pathname?.startsWith('/docs') ? 'bg-blastoff-orange' : ''}`}
             >
               <span className={`${navTextClass} flex h-full w-full items-center justify-center px-5`}>
                 Docs
@@ -150,7 +155,7 @@ export function Header() {
               href="/docs"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-3 py-3 text-left transition-colors active:bg-blastoff-border ${
-                pathname === '/docs'
+                pathname?.startsWith('/docs')
                   ? 'text-blastoff-orange'
                   : 'text-blastoff-text-secondary'
               }`}

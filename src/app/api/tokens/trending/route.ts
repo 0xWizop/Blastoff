@@ -3,13 +3,14 @@ import { isAddress } from 'viem';
 import { db } from '@/lib/firebaseAdmin';
 import { getTokenLiveStats, getTokenAddressesFromFactory, getTokenMetadataFromChain, getClient } from '@/lib/chainUtils';
 import { mapTokenData } from '@/lib/firestoreTokenMap';
-import { getContracts, DEFAULT_CHAIN_ID } from '@/config/contracts';
+import { getContracts, DEFAULT_CHAIN_ID, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
 
 const TRENDING_LIMIT = 5;
-const TRENDING_ENRICH_LIMIT = 16;
+// Only need a small candidate set to pick top 5, keep this low for speed
+const TRENDING_ENRICH_LIMIT = 10;
 const DEFAULT_SUPPLY = 1e9;
 const BATCH_SIZE = 8;
 const MAX_FACTORY_TOKENS = 30;
@@ -31,91 +32,109 @@ export async function GET(req: Request) {
     const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
     const contracts = getContracts(chainId);
 
+    // Always fetch Firebase tokens first
     const snapshot = await db.collection('TokenData').get();
     let tokens = snapshot.docs.map((d) => mapTokenData(d.id, d.data()));
 
+    // Try to add factory tokens (non-blocking, shallow window so it stays fast)
     const firebaseAddresses = new Set(tokens.map((t) => (t.address || '').toLowerCase()));
     if (contracts.TOKEN_FACTORY) {
-      const factoryMints = await getTokenAddressesFromFactory(chainId, 80000);
-      const client = getClient(chainId);
-      let added = 0;
-      for (const mint of factoryMints) {
-        if (added >= MAX_FACTORY_TOKENS) break;
-        const addr = mint.address.toLowerCase();
-        if (firebaseAddresses.has(addr)) continue;
-        firebaseAddresses.add(addr);
-        try {
-          const block = await client.getBlock({ blockNumber: mint.blockNumber });
-          const startTime = Number(block.timestamp) * 1000;
-          const meta = await getTokenMetadataFromChain(mint.address, startTime, chainId);
-          tokens.push({
-            address: meta.address,
-            id: meta.address,
-            name: meta.name,
-            symbol: meta.symbol,
-            logoUrl: '',
-            description: '',
-            creatorAddress: mint.creator,
-            totalSupply: meta.totalSupply ?? DEFAULT_SUPPLY,
-            volume24h: 0,
-            marketCap: 0,
-            price: 0.00003,
-            priceChange24h: 0,
-            status: 'LIVE',
-            createdAt: new Date(startTime).toISOString(),
-            startTime,
-            endTime: startTime + 30 * 24 * 60 * 60 * 1000,
-            raised: 0,
-            hardCap: 100,
-            softCap: 10,
-            website: '',
-            twitter: '',
-            telegram: '',
-            discord: '',
-          });
-          added++;
-        } catch (e) {
-          console.warn('Skip factory token metadata (trending):', mint.address, e);
+      try {
+        // Only look back a modest number of blocks; trending cares about recent launches
+        const factoryMints = await getTokenAddressesFromFactory(chainId, 20000);
+        const client = getClient(chainId);
+        let added = 0;
+        for (const mint of factoryMints) {
+          if (added >= MAX_FACTORY_TOKENS) break;
+          const addr = mint.address.toLowerCase();
+          if (firebaseAddresses.has(addr)) continue;
+          firebaseAddresses.add(addr);
+          try {
+            const block = await client.getBlock({ blockNumber: mint.blockNumber });
+            const startTime = Number(block.timestamp) * 1000;
+            const meta = await getTokenMetadataFromChain(mint.address, startTime, chainId);
+            tokens.push({
+              address: meta.address,
+              id: meta.address,
+              name: meta.name,
+              symbol: meta.symbol,
+              logoUrl: '',
+              description: '',
+              creatorAddress: mint.creator,
+              totalSupply: meta.totalSupply ?? DEFAULT_SUPPLY,
+              volume24h: 0,
+              marketCap: 0,
+              price: DEFAULT_INITIAL_PRICE,
+              priceChange24h: 0,
+              status: 'LIVE',
+              createdAt: new Date(startTime).toISOString(),
+              startTime,
+              endTime: startTime + 30 * 24 * 60 * 60 * 1000,
+              raised: 0,
+              hardCap: 100,
+              softCap: 10,
+              website: '',
+              twitter: '',
+              telegram: '',
+              discord: '',
+            });
+            added++;
+          } catch (e) {
+            console.warn('[Trending API] Skip factory token metadata:', mint.address, e);
+          }
         }
+        tokens.sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0));
+      } catch (e) {
+        console.warn('[Trending API] Factory token fetch failed, using Firebase only:', e);
+        // Continue with Firebase tokens only
       }
-      tokens.sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0));
     }
 
+    // Enrich tokens with live stats (non-blocking - failures don't break the response)
     const toEnrich = tokens
       .filter((t) => t.address && isAddress(t.address))
       .sort((a, b) => b.startTime - a.startTime)
       .slice(0, TRENDING_ENRICH_LIMIT);
     const enrichedAddresses = new Set<string>();
 
-    for (let i = 0; i < toEnrich.length; i += BATCH_SIZE) {
-      const batch = toEnrich.slice(i, i + BATCH_SIZE);
-      const settled = await Promise.allSettled(
-        batch.map((t) =>
-          getTokenLiveStats(
-            t.address as `0x${string}`,
-            chainId,
-            Number(t.totalSupply) || DEFAULT_SUPPLY,
-            60
-          )
-        )
-      );
-      const fallback = { price: 0, marketCap: 0, volume24h: 0, priceChange24h: 0, txCount24h: 0, holders: 0 };
-      const results = settled.map((s) => (s.status === 'fulfilled' ? s.value : fallback));
-      const statsByAddress = new Map(batch.map((t, j) => [t.address.toLowerCase(), results[j]]));
-      tokens = tokens.map((t) => {
-        const stats = t.address ? statsByAddress.get(t.address.toLowerCase()) : null;
-        if (!stats) return t;
-        enrichedAddresses.add(t.address.toLowerCase());
-        return {
-          ...t,
-          price: stats.price || t.price,
-          marketCap: stats.marketCap,
-          volume24h: stats.volume24h,
-          priceChange24h: stats.priceChange24h,
-          txCount24h: stats.txCount24h,
-          holders: stats.holders,
-        };
-      });
+    if (toEnrich.length > 0) {
+      try {
+        for (let i = 0; i < toEnrich.length; i += BATCH_SIZE) {
+          const batch = toEnrich.slice(i, i + BATCH_SIZE);
+          const settled = await Promise.allSettled(
+            batch.map((t) =>
+              getTokenLiveStats(
+                t.address as `0x${string}`,
+                chainId,
+                Number(t.totalSupply) || DEFAULT_SUPPLY,
+                60
+              )
+            )
+          );
+          const fallback = { price: 0, marketCap: 0, volume24h: 0, priceChange24h: 0, txCount24h: 0, holders: 0 };
+          const results = settled.map((s) => (s.status === 'fulfilled' ? s.value : fallback));
+          const statsByAddress = new Map(batch.map((t, j) => [t.address.toLowerCase(), results[j]]));
+          tokens = tokens.map((t) => {
+            const stats = t.address ? statsByAddress.get(t.address.toLowerCase()) : null;
+            // Always merge stats if available (even if volume24h/priceChange24h are 0)
+            if (!stats) return t;
+            enrichedAddresses.add(t.address.toLowerCase());
+            return {
+              ...t,
+              price: stats.price > 0 ? stats.price : (t.price || 0),
+              marketCap: stats.marketCap >= 0 ? stats.marketCap : (t.marketCap || 0),
+              volume24h: stats.volume24h >= 0 ? stats.volume24h : (t.volume24h || 0),
+              priceChange24h: stats.priceChange24h !== undefined ? stats.priceChange24h : (t.priceChange24h ?? 0),
+              txCount24h: stats.txCount24h >= 0 ? stats.txCount24h : (t.txCount24h || 0),
+              holders: stats.holders >= 0 ? stats.holders : (t.holders || 0),
+            };
+          });
+        }
+      } catch (e) {
+        console.warn('[Trending API] Live stats enrichment failed:', e);
+        // Return empty array if enrichment fails (we only want real chain data)
+        return NextResponse.json({ tokens: [] });
+      }
     }
 
     // Only show tokens we enriched with live chain data (no hardcoded/Firebase-only data)

@@ -142,7 +142,7 @@ export default function RootLayout({
           <Web3Provider>
             <OnboardingLauncher />
             <Header />
-            <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+            <main className="relative min-h-[calc(100vh-4rem)]">{children}</main>
             <Footer />
             <AppModals />
           </Web3Provider>

@@ -11,7 +11,14 @@ const TOKENS_PER_PAGE = 12;
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
+    let errorMessage = `Request failed: ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.error) errorMessage = errorData.error;
+    } catch {
+      // Ignore JSON parse errors
+    }
+    throw new Error(errorMessage);
   }
   return res.json() as Promise<T>;
 }
@@ -49,43 +56,32 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
   return list;
 }
 
-/** Single source of token list: fast Firebase first, then live on-chain. Live runs after fast succeeds. Uses DEFAULT_CHAIN_ID when wallet not connected so stats still load. */
+/** Single source of token list.
+ * Homepage now uses a single lightweight API call that reads from Firebase only.
+ * Live on-chain stats are reserved for token detail pages to keep the list snappy.
+ */
 export function useTokensList() {
-  const queryClient = useQueryClient();
   const chainId = useChainId();
   const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
 
-  const fastQuery = useQuery({
-    queryKey: ['tokensListFast', effectiveChainId],
-    queryFn: async (): Promise<Token[]> => {
-      const params = new URLSearchParams({ chainId: String(effectiveChainId) });
-      const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
-      const now = Date.now();
-      return (tokens || []).filter((t) => t.startTime <= now);
-    },
-    staleTime: 60_000,
-  });
-
-  const liveQuery = useQuery({
+  return useQuery({
     queryKey: ['tokensList', effectiveChainId],
     queryFn: async (): Promise<Token[]> => {
       try {
-        const params = new URLSearchParams({ live: 'true', chainId: String(effectiveChainId) });
+        const params = new URLSearchParams({ chainId: String(effectiveChainId) });
         const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens?${params}`);
         const now = Date.now();
-        return (tokens || []).filter((t) => t.startTime <= now);
-      } catch {
-        const fast = queryClient.getQueryData<Token[]>(['tokensListFast', effectiveChainId]);
-        return fast ?? [];
+        const filtered = (tokens || []).filter((t) => t.startTime <= now);
+        console.log(`[useTokensList] ${filtered.length} tokens (chainId: ${effectiveChainId})`);
+        return filtered;
+      } catch (err) {
+        console.error('[useTokensList] Failed:', err);
+        throw err;
       }
     },
-    placeholderData: () => queryClient.getQueryData<Token[]>(['tokensListFast', effectiveChainId]),
-    staleTime: 30_000,
-    enabled: fastQuery.isSuccess,
-    retry: 1,
+    staleTime: 60_000,
+    retry: 2,
   });
-
-  return liveQuery;
 }
 
 /** Filtered/sorted list (e.g. for Top Movers). Derives from shared list. */
@@ -163,13 +159,16 @@ export function useTrendingTokens() {
         const params = new URLSearchParams({ chainId: String(effectiveChainId) });
         const { tokens } = await fetchJson<{ tokens: Token[] }>(`/api/tokens/trending?${params}`);
         const now = Date.now();
-        return (tokens || []).filter((t) => t.startTime <= now);
-      } catch {
+        const filtered = (tokens || []).filter((t) => t.startTime <= now);
+        console.log(`[useTrendingTokens] ${filtered.length} trending tokens (chainId: ${effectiveChainId})`);
+        return filtered;
+      } catch (err) {
+        console.error('[useTrendingTokens] Failed:', err);
         return [];
       }
     },
     refetchInterval: 30000,
-    retry: 1,
+    retry: 2,
     staleTime: 20_000,
   });
 }

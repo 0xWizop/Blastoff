@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { createPublicClient, encodeFunctionData, http, isAddress, decodeEventLog } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { tokenFactoryAbi } from '@/lib/abis';
-import { getChainConfig, getContracts } from '@/config/contracts';
+import { getChainConfig, getContracts, DEFAULT_TOTAL_SUPPLY, DEFAULT_FDV_MULTIPLE } from '@/config/contracts';
 import { db } from '@/lib/firebaseAdmin';
+import { getEthUsdPriceEstimate } from '@/lib/ethPrice';
 
 export const runtime = 'nodejs';
 
@@ -80,6 +81,13 @@ export async function POST(req: Request) {
       }
 
       const now = Date.now();
+      // Derive starting price / market cap based on current ETH price so new launches
+      // have a realistic default even before on-chain stats are indexed.
+      const ethPriceUsd = await getEthUsdPriceEstimate();
+      const fdvUsd = ethPriceUsd * DEFAULT_FDV_MULTIPLE;
+      const supplyNum = totalSupply ? Number(totalSupply) || DEFAULT_TOTAL_SUPPLY : DEFAULT_TOTAL_SUPPLY;
+      const launchPrice = fdvUsd / supplyNum;
+
       await db.collection('TokenData').doc(tokenAddress).set(
         {
           name: name?.trim() || '',
@@ -92,7 +100,8 @@ export async function POST(req: Request) {
           softCap: 0,
           startTime: now,
           endTime: now + 7 * 24 * 60 * 60 * 1000,
-          price: 0,
+          price: launchPrice,
+          marketCap: fdvUsd,
           description: description?.trim() || '',
           website: website?.trim() || '',
           twitter: twitter?.trim() || '',

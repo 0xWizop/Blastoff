@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAddress } from 'viem';
 import { db } from '@/lib/firebaseAdmin';
-import { getTokenICOStats, getTokenTrades, getTokenHolders } from '@/lib/chainUtils';
+import { getTokenLiveStats } from '@/lib/chainUtils';
 import { mapTokenData } from '@/lib/firestoreTokenMap';
 import { DEFAULT_CHAIN_ID } from '@/config/contracts';
 
@@ -36,30 +36,31 @@ export async function GET(
       return NextResponse.json({ token: null }, { status: 404 });
     }
 
-    const token = mapTokenData(doc.id, doc.data()!);
+    const rawData = doc.data()!;
+    const token = mapTokenData(doc.id, rawData);
     const tokenAddress = token.address;
 
-    // Merge live on-chain stats so price, mcap, volume, txns update after buys/sells
+    // Merge live on-chain stats so price, mcap, volume, txns update after buys/sells.
+    // Use the same lightweight helper as the homepage/trending so this stays reasonably fast.
     if (tokenAddress && isAddress(tokenAddress)) {
       try {
-        const [icoStats, trades, holdersData] = await Promise.all([
-          getTokenICOStats(tokenAddress as `0x${string}`, chainId),
-          getTokenTrades(tokenAddress as `0x${string}`, chainId, 300),
-          getTokenHolders(tokenAddress as `0x${string}`, chainId, 10),
-        ]);
-
-        const now = Date.now();
-        const oneDayAgo = now - 24 * 60 * 60 * 1000;
-        const trades24h = trades.filter((t) => t.timestamp > oneDayAgo);
-        const volume24h = trades24h.reduce((sum, t) => sum + t.totalValue, 0);
-        const txCount24h = trades24h.length;
-
-        token.price = icoStats.currentPrice;
-        const supply = Number(token.totalSupply) || 1e9;
-        token.marketCap = icoStats.currentPrice * supply;
-        token.volume24h = volume24h;
-        token.txCount24h = txCount24h;
-        token.holders = holdersData.totalHolders;
+        const live = await getTokenLiveStats(tokenAddress as `0x${string}`, chainId, Number(token.totalSupply) || 1e9, 150);
+        token.price = live.price;
+        token.marketCap = live.marketCap;
+        token.volume24h = live.volume24h;
+        token.priceChange24h = live.priceChange24h;
+        token.txCount24h = live.txCount24h;
+        // Persist the latest stats back into Firestore so homepage/trending can show them quickly next time.
+        const statsToPersist: Record<string, unknown> = {
+          price: token.price,
+          marketCap: token.marketCap,
+          volume: token.volume24h,
+          priceChange24h: token.priceChange24h,
+          txCount24h: token.txCount24h,
+        };
+        db.collection('TokenData').doc(doc.id).update(statsToPersist).catch(() => {
+          // Non-fatal: homepage will still use the in-memory values
+        });
       } catch (_) {
         // Keep Firebase values on chain error
       }

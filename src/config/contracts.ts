@@ -64,6 +64,17 @@ export const CHAIN_CONFIGS: Record<
 
 export const DEFAULT_CHAIN_ID: SupportedChainId = 84532;
 
+// Default launch economics (used for fallbacks only, not for exact on-chain pricing).
+// We model starting FDV as: ETH price (USD) * FDV multiple.
+// Example: 1 ETH pool, ETH ≈ $2100, FDV multiple 10x → ~21k starting FDV.
+// If ETH moves or launch mechanics change, update these two numbers.
+export const DEFAULT_TOTAL_SUPPLY = 1_000_000_000;
+export const DEFAULT_ETH_PRICE_USD_ESTIMATE = 2100;
+export const DEFAULT_FDV_MULTIPLE = 10;
+export const DEFAULT_INITIAL_MARKET_CAP =
+  DEFAULT_ETH_PRICE_USD_ESTIMATE * DEFAULT_FDV_MULTIPLE;
+export const DEFAULT_INITIAL_PRICE = DEFAULT_INITIAL_MARKET_CAP / DEFAULT_TOTAL_SUPPLY;
+
 export function getContracts(chainId?: number) {
   const id = (chainId ?? DEFAULT_CHAIN_ID) as SupportedChainId;
   return CONTRACTS_BY_CHAIN[id];
