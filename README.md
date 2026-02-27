@@ -62,34 +62,48 @@ npm start
 
 ```
 src/
-├── app/                    # Next.js App Router pages
-│   ├── app/               # Main coin feed (/app)
-│   ├── token/[address]/   # Individual token page
-│   ├── globals.css        # Global styles
-│   └── layout.tsx         # Root layout
-├── components/            # React components
-│   ├── Header.tsx         # Sticky header with logo, network, wallet
-│   ├── WalletButton.tsx   # Custom wallet connect/disconnect
-│   ├── NetworkBadge.tsx   # Base network indicator
-│   ├── CoinCard.tsx       # Token launch card
-│   ├── FilterBar.tsx      # Status, sort, search filters
-│   ├── TrendingTokens.tsx # Trending leaderboard
-│   ├── TokenChart.tsx     # TradingView chart wrapper
-│   ├── SwapPanel.tsx      # Buy/sell UI shell
-│   ├── UserPosition.tsx   # PnL display
-│   └── Skeleton.tsx       # Loading skeletons
+├── app/                           # Next.js App Router
+│   ├── app/                       # Main token feed (/app)
+│   ├── create/                    # Token creation / launch preview
+│   ├── token/[address]/           # Individual token page (chart, swap, trades)
+│   ├── docs/                      # Documentation layout + pages
+│   ├── api/                       # Backend routes (tokens, swap, balances, ICO)
+│   ├── globals.css                # Global styles
+│   └── layout.tsx                 # Root layout
+├── components/                    # Reusable UI
+│   ├── Header.tsx                 # App header (switches to DocsHeader on /docs)
+│   ├── DocsHeader.tsx             # Documentation header
+│   ├── CoinCard.tsx               # Token card in feed
+│   ├── FilterBar.tsx              # Search / sort / filters
+│   ├── TokenChart.tsx             # Lightweight candlestick chart
+│   ├── SwapPanel.tsx              # Buy / sell panel (ICO + DEX)
+│   ├── RecentTrades.tsx           # Live trades list
+│   ├── TrendingTokens.tsx         # Trending / top movers
+│   ├── WalletButton.tsx           # Wallet connect / network
+│   └── Skeleton.tsx               # Loading skeletons
 ├── config/
-│   └── wagmi.ts           # Wagmi configuration
+│   └── contracts.ts               # Chain + contract addresses (TokenFactory, routers)
 ├── data/
-│   └── mockTokens.ts      # Mock data for development
-├── hooks/
-│   └── useTokens.ts       # Data fetching hooks (TanStack Query)
+│   └── mockTokens.ts              # Mock tokens for local/dev
+├── hooks/                         # React hooks (data + web3)
+│   ├── useTokens.ts               # Tokens list, charts, positions, swap quotes
+│   ├── useSwap.ts                 # DEX swap execution
+│   ├── useBalances.ts             # Wallet balances
+│   ├── useTokenFactory.ts         # ICO state + TokenFactory buy/sell
+│   └── useTradeStream.ts          # SSE trade stream
+├── lib/
+│   ├── chainUtils.ts              # On-chain reads, trades, ICO stats
+│   ├── firestoreTokenMap.ts       # Map Firestore docs → Token shape
+│   ├── firestoreTrades.ts         # Persist / load trades history
+│   └── ethPrice.ts                # ETH price helpers
 ├── providers/
-│   └── Web3Provider.tsx   # Wagmi + Query provider
+│   └── Web3Provider.tsx           # Wagmi + TanStack Query providers
+├── services/
+│   └── api.ts                     # Client-side API helpers
 ├── store/
-│   └── useAppStore.ts     # Zustand UI state
+│   └── useAppStore.ts             # Zustand UI state
 └── types/
-    └── index.ts           # TypeScript interfaces
+    └── index.ts                   # Shared TypeScript types
 ```
 
 ## Data Architecture
