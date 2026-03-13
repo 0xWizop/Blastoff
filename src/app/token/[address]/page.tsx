@@ -12,9 +12,6 @@ import { SwapPanel } from '@/components/SwapPanel';
 import { UserPosition } from '@/components/UserPosition';
 import { Skeleton } from '@/components/Skeleton';
 import { FullPageLoader } from '@/components/Spinner';
-import { TradesFeed } from '@/components/TradesFeed';
-import { RecentTrades } from '@/components/RecentTrades';
-import { TokenChat } from '@/components/TokenChat';
 import { HolderDistribution } from '@/components/HolderDistribution';
 import { ShareCard } from '@/components/ShareCard';
 
@@ -22,6 +19,30 @@ const TokenChart = dynamic(
   () => import('@/components/TokenChart').then((mod) => mod.TokenChart),
   {
     loading: () => <Skeleton className="h-[468px] w-full " />,
+    ssr: false,
+  }
+);
+
+const TradesFeed = dynamic(
+  () => import('@/components/TradesFeed').then((mod) => mod.TradesFeed),
+  {
+    loading: () => <Skeleton className="h-full w-full min-h-[400px]" />,
+    ssr: false,
+  }
+);
+
+const TokenChat = dynamic(
+  () => import('@/components/TokenChat').then((mod) => mod.TokenChat),
+  {
+    loading: () => <Skeleton className="h-full w-full min-h-[400px]" />,
+    ssr: false,
+  }
+);
+
+const RecentTrades = dynamic(
+  () => import('@/components/RecentTrades').then((mod) => mod.RecentTrades),
+  {
+    loading: () => <Skeleton className="h-[200px] w-full" />,
     ssr: false,
   }
 );

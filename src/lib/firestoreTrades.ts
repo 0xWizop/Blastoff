@@ -41,7 +41,6 @@ export async function getTradesFromStore(
   const snapshot = await db
     .collection(COLLECTION)
     .where('tokenAddress', '==', addr)
-    .where('chainId', '==', chainId)
     .orderBy('timestamp', 'desc')
     .limit(limit)
     .get()

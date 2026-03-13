@@ -203,8 +203,8 @@ export async function GET(req: Request) {
           args: [tokenAddress as Address],
         });
 
-        // State: 0 = NOT_CREATED, 1 = ICO, 2 = GRADUATED
-        if (tokenState === 1) {
+        // State: 0 = NOT_CREATED (treat ghost tokens as ICO), 1 = ICO, 2 = GRADUATED
+        if (tokenState === 1 || tokenState === 0) {
           // Token is in ICO phase - use bonding curve calculation
           const icoQuote = await calculateICOPriceImpact(
             client,

@@ -35,9 +35,9 @@ interface Trade {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ address: string }> }
+  { params }: { params: { address: string } }
 ) {
-  const { address: tokenAddress } = await params;
+  const { address: tokenAddress } = params;
   const chainIdParam = req.nextUrl.searchParams.get('chainId');
   const chainId = chainIdParam ? Number(chainIdParam) : undefined;
 

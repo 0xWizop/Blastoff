@@ -44,36 +44,24 @@ export async function GET(
     if (trades.length === 0) {
       const now = Math.floor(Date.now() / 1000);
 
-      if (icoStats.collateralRaised > 0) {
-        const startPrice = DEFAULT_INITIAL_PRICE;
-        
-        return NextResponse.json({ 
-          candles: [{
-            time: now - 3600,
-            open: startPrice,
-            high: currentPrice * 1.01,
-            low: startPrice * 0.99,
-            close: currentPrice,
-            volume: icoStats.collateralRaised,
-          }],
-          debug: {
-            tradesFound: 0,
-            collateral: icoStats.collateralRaised,
-            currentPrice,
-            state: icoStats.state,
-            note: 'Single candle showing price movement from buys'
-          }
-        });
-      }
-
+      // output a single candle to prevent the chart from showing an empty state
+      const startPrice = DEFAULT_INITIAL_PRICE;
+      
       return NextResponse.json({ 
-        candles: [],
+        candles: [{
+          time: now - 3600,
+          open: startPrice,
+          high: currentPrice * 1.01,
+          low: startPrice * 0.99,
+          close: currentPrice,
+          volume: icoStats.collateralRaised,
+        }],
         debug: {
           tradesFound: 0,
-          collateral: 0,
+          collateral: icoStats.collateralRaised,
           currentPrice,
           state: icoStats.state,
-          note: 'No trading activity yet'
+          note: 'Single candle showing price movement from buys or launch'
         }
       });
     }

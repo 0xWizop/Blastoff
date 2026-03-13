@@ -3,7 +3,7 @@ import { isAddress } from 'viem';
 import { db } from '@/lib/firebaseAdmin';
 import { getTokenLiveStats } from '@/lib/chainUtils';
 import { mapTokenData } from '@/lib/firestoreTokenMap';
-import { DEFAULT_CHAIN_ID } from '@/config/contracts';
+import { DEFAULT_CHAIN_ID, DEFAULT_INITIAL_PRICE } from '@/config/contracts';
 
 export const runtime = 'nodejs';
 
@@ -45,22 +45,30 @@ export async function GET(
     if (tokenAddress && isAddress(tokenAddress)) {
       try {
         const live = await getTokenLiveStats(tokenAddress as `0x${string}`, chainId, Number(token.totalSupply) || 1e9, 150);
-        token.price = live.price;
-        token.marketCap = live.marketCap;
-        token.volume24h = live.volume24h;
-        token.priceChange24h = live.priceChange24h;
-        token.txCount24h = live.txCount24h;
-        // Persist the latest stats back into Firestore so homepage/trending can show them quickly next time.
-        const statsToPersist: Record<string, unknown> = {
-          price: token.price,
-          marketCap: token.marketCap,
-          volume: token.volume24h,
-          priceChange24h: token.priceChange24h,
-          txCount24h: token.txCount24h,
-        };
-        db.collection('TokenData').doc(doc.id).update(statsToPersist).catch(() => {
-          // Non-fatal: homepage will still use the in-memory values
-        });
+        
+        // Only overwrite with live stats if there is real activity or a state change
+        // Otherwise preserve the existing Firebase test data (price, mcap)
+        const isDefaultFallback = live.txCount24h === 0 && live.volume24h === 0 && live.price === DEFAULT_INITIAL_PRICE;
+        
+        if (!isDefaultFallback) {
+          token.price = live.price;
+          token.marketCap = live.marketCap;
+          token.volume24h = live.volume24h;
+          token.priceChange24h = live.priceChange24h;
+          token.txCount24h = live.txCount24h;
+          
+          // Persist the latest stats back into Firestore so homepage/trending can show them quickly next time.
+          const statsToPersist: Record<string, unknown> = {
+            price: token.price,
+            marketCap: token.marketCap,
+            volume: token.volume24h,
+            priceChange24h: token.priceChange24h,
+            txCount24h: token.txCount24h,
+          };
+          db.collection('TokenData').doc(doc.id).update(statsToPersist).catch(() => {
+            // Non-fatal: homepage will still use the in-memory values
+          });
+        }
       } catch (_) {
         // Keep Firebase values on chain error
       }

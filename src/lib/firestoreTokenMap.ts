@@ -12,6 +12,9 @@ export function mapTokenData(docId: string, data: FirebaseFirestore.DocumentData
     createdAt = new Date(startTime).toISOString();
   } else if (typeof createdAt === 'string') {
     startTime = new Date(createdAt).getTime();
+  } else if (typeof createdAt === 'number') {
+    startTime = createdAt;
+    createdAt = new Date(startTime).toISOString();
   }
 
   // Derive sensible defaults so tokens without on-chain activity still show a launch price and mcap.
@@ -49,5 +52,8 @@ export function mapTokenData(docId: string, data: FirebaseFirestore.DocumentData
     twitter: data.twitter || '',
     telegram: data.telegram || '',
     discord: data.discord || '',
+    txCount24h: data.txCount24h || 0,
+    holders: data.holders || 0,
+    liquidity: data.liquidity || 0,
   };
 }

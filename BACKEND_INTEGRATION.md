@@ -14,7 +14,7 @@ This document outlines all API endpoints the frontend expects. The backend engin
 | `GET /api/positions/[tokenAddress]` | ❌ TODO | Position tracking |
 | `GET /api/swap/quote` | ❌ TODO | DEX quotes |
 | `POST /api/swap/execute` | ❌ TODO | Build swap tx |
-| `POST /api/tokens/create` | ❌ TODO | Factory contract |
+| `POST /api/tokens/create` | ❌ TODO | contract |
 | `POST /api/tokens/launch` | ❌ TODO | Liquidity provision |
 
 ---

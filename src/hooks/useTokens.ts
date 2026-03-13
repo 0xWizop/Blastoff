@@ -46,13 +46,22 @@ function applyFiltersAndSort(tokens: Token[], filters?: FilterState): Token[] {
 
   switch (filters.sort) {
     case 'marketCap':
-      list.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+      list.sort((a, b) => {
+        const mcapDiff = (b.marketCap || 0) - (a.marketCap || 0);
+        return mcapDiff !== 0 ? mcapDiff : (b.startTime || 0) - (a.startTime || 0);
+      });
       break;
     case 'volume24h':
-      list.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+      list.sort((a, b) => {
+        const volDiff = (b.volume24h || 0) - (a.volume24h || 0);
+        return volDiff !== 0 ? volDiff : (b.startTime || 0) - (a.startTime || 0);
+      });
       break;
     case 'priceChange24h':
-      list.sort((a, b) => (b.priceChange24h ?? -Infinity) - (a.priceChange24h ?? -Infinity));
+      list.sort((a, b) => {
+        const pDiff = (b.priceChange24h ?? -Infinity) - (a.priceChange24h ?? -Infinity);
+        return pDiff !== 0 ? pDiff : (b.startTime || 0) - (a.startTime || 0);
+      });
       break;
     case 'newest':
     default:
@@ -122,7 +131,7 @@ export function useTokensPaginated(filters?: FilterState, page: number = 1) {
 }
 
 export function useToken(address: string, options?: { refetchInterval?: number; chainId?: number }) {
-  const chainId = options?.chainId;
+  const chainId = options?.chainId ?? DEFAULT_CHAIN_ID;
   return useQuery({
     queryKey: ['token', address, chainId],
     queryFn: async (): Promise<Token | null> => {
@@ -131,7 +140,8 @@ export function useToken(address: string, options?: { refetchInterval?: number; 
       return token;
     },
     enabled: !!address,
-    refetchInterval: options?.refetchInterval ?? false,
+    refetchInterval: options?.refetchInterval ?? 20000,
+    staleTime: 5000,
   });
 }
 
@@ -140,11 +150,12 @@ export function useToken(address: string, options?: { refetchInterval?: number; 
  * Pass chainId so the correct chain's trades/prices are used.
  */
 export function useTokenChart(address: string, timeframe: string = '1m', chainId?: number) {
+  const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
   return useQuery({
-    queryKey: ['tokenChart', address, timeframe, chainId],
+    queryKey: ['tokenChart', address, timeframe, effectiveChainId],
     queryFn: async (): Promise<ChartCandle[]> => {
       const params = new URLSearchParams({ timeframe });
-      if (chainId != null) params.set('chainId', String(chainId));
+      if (effectiveChainId != null) params.set('chainId', String(effectiveChainId));
       const { candles } = await fetchJson<{ candles: ChartCandle[] }>(
         `/api/tokens/${address}/chart?${params}`
       );
@@ -152,6 +163,7 @@ export function useTokenChart(address: string, timeframe: string = '1m', chainId
     },
     enabled: !!address,
     refetchInterval: 60000,
+    staleTime: 10000,
   });
 }
 

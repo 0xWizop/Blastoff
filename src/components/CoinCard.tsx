@@ -31,9 +31,30 @@ export function CoinCard({ token }: CoinCardProps) {
   const chainId = useChainId();
 
   const prefetchToken = () => {
+    // Prefetch token payload
     queryClient.prefetchQuery({
       queryKey: ['token', token.address, chainId],
+      queryFn: async (): Promise<Token | null> => {
+        const q = chainId != null ? `?chainId=${chainId}` : '';
+        const { token: t } = await fetch(`/api/tokens/${token.address}${q}`).then(r => r.json());
+        return t;
+      },
+      staleTime: 5000,
     });
+    // Prefetch chart rendering payload assuming '1m' timeframe initially
+    queryClient.prefetchQuery({
+      queryKey: ['tokenChart', token.address, '1m', chainId],
+      queryFn: async () => {
+        const params = new URLSearchParams({ timeframe: '1m' });
+        if (chainId != null) params.set('chainId', String(chainId));
+        const { candles } = await fetch(`/api/tokens/${token.address}/chart?${params}`).then(r => r.json());
+        return candles || [];
+      },
+      staleTime: 10000,
+    });
+    
+    // Primes the NextJS App Router payload for instant mounting
+    router.prefetch(`/token/${token.address}`);
   };
 
   const socials = [

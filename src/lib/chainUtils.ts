@@ -295,39 +295,50 @@ export async function getTokenICOStats(
   const client = getClient(chainId);
   const FUNDING_GOAL = 30; // 30 ETH from contract
   const INITIAL_MINT = 200_000_000; // 200M tokens (20% of 1B)
+  const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
   
   try {
-    const { collateral, state } = await getTokenFactoryState(tokenAddress, chainId);
-    
     const stateMap: Record<number, 'NOT_CREATED' | 'ICO' | 'GRADUATED'> = {
       0: 'NOT_CREATED',
       1: 'ICO',
       2: 'GRADUATED',
     };
     
-    const collateralRaised = Number(formatUnits(collateral, 18));
-    const fundingProgress = (collateralRaised / FUNDING_GOAL) * 100;
-    
-    // Get current price from bonding curve
-    const currentPrice = await calculateTokenPrice(tokenAddress, chainId);
-    
-    // Get tokens remaining in factory
-    let tokensRemaining = INITIAL_MINT;
-    const factoryAddress = getContracts(chainId).TOKEN_FACTORY as Address | undefined;
+    // Fetch all RPC data points in parallel to speed up API response
+    const fetchPromises = [
+      getTokenFactoryState(tokenAddress, chainId),
+      calculateTokenPrice(tokenAddress, chainId),
+    ];
+
     if (factoryAddress) {
-      try {
-        const factoryBalance = await client.readContract({
+      fetchPromises.push(
+        client.readContract({
           address: tokenAddress,
           abi: erc20Abi,
           functionName: 'balanceOf',
           args: [factoryAddress],
-        });
-        tokensRemaining = Number(formatUnits(factoryBalance, 18));
-      } catch {
-        // Use default
-      }
+        }).catch(() => BigInt(INITIAL_MINT * 1e18))
+      );
     }
 
+    const [stateResult, priceResult, balanceResult] = await Promise.allSettled(fetchPromises);
+    
+    // Extract results or fallbacks
+    const { collateral, state } = stateResult.status === 'fulfilled' 
+      ? (stateResult.value as { collateral: bigint; state: number }) 
+      : { collateral: 0n, state: 0 };
+      
+    const currentPrice = priceResult.status === 'fulfilled' 
+      ? (priceResult.value as number) 
+      : DEFAULT_INITIAL_PRICE;
+
+    let tokensRemaining = INITIAL_MINT;
+    if (factoryAddress && balanceResult && balanceResult.status === 'fulfilled') {
+      tokensRemaining = Number(formatUnits(balanceResult.value as bigint, 18));
+    }
+
+    const collateralRaised = Number(formatUnits(collateral, 18));
+    const fundingProgress = (collateralRaised / FUNDING_GOAL) * 100;
     const tokensSold = INITIAL_MINT - tokensRemaining;
     
     return {

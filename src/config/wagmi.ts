@@ -3,6 +3,7 @@ import { base, baseSepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
 
 export const config = createConfig({
+  ssr: true,
   chains: [base, baseSepolia],
   connectors: [
     // Injected wallets (MetaMask, Rabby, Phantom, Coinbase Wallet extension, etc.)

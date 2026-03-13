@@ -36,7 +36,7 @@ export function useTokenFactoryState(tokenAddress: string | undefined) {
 
   return {
     state: numericState,
-    isICO: numericState === 1,
+    isICO: numericState === 1 || numericState === 0,
     isGraduated: numericState === 2,
     isLoading: !!tokenAddress && isLoading,
     hasTokenFactory: !!factoryAddress,
